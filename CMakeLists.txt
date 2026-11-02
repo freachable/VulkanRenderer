@@ -72,7 +72,7 @@ else()
   )
 endif()
 
-find_package(stb REQUIRED)
+find_package(Stb REQUIRED)
 set(STB_INCLUDEDIR ${stb_INCLUDE_DIRS})
 
 find_program(SLANGC_EXECUTABLE slangc HINTS $ENV{VULKAN_SDK}/bin REQUIRED)

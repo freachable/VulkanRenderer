@@ -17,7 +17,7 @@
 import vulkan_hpp;
 #endif
 
-#define GLFW_INCLUDE_VULKAN        // REQUIRED only for GLFW CreateWindowSurface.
+#define GLFW_INCLUDE_NONE        // REQUIRED only for GLFW CreateWindowSurface.
 #include <GLFW/glfw3.h>
 
 constexpr uint32_t WIDTH = 800;

@@ -1,13 +1,33 @@
 {
   "name": "vulkan-project",
   "version": "1.0.0",
+  "builtin-baseline": "9a5dfef5d1a0438a7d24856a85bd60f309d355e9",
+  "features": {
+    "linux-wayland": {
+      "description": "Build with GLFW Wayland support",
+      "dependencies": [
+        {
+          "name": "glfw3",
+          "features": ["wayland"]
+        }
+      ]
+    },
+    "linux-x11": {
+      "description": "Build with GLFW X11 support",
+      "dependencies": [
+        {
+          "name": "glfw3",
+          "features": ["x11"]
+        }
+      ]
+    }
+  },
   "dependencies": [
     "glfw3",
     "glm",
     "stb",
     "tinyobjloader",
-    "vulkan-sdk-components",
+    "vulkan",
     "vulkan-validationlayers"
-  ],
-  "builtin-baseline": "9a5dfef5d1a0438a7d24856a85bd60f309d355e9"
+  ]
 }

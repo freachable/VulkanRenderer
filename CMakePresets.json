@@ -2,21 +2,59 @@
   "version": 6,
   "configurePresets": [
     {
-      "name": "Visual Studio x64",
-      "displayName": "Vulkan Debug x64",
+      "name": "linux-base",
+      "hidden": true,
       "generator": "Ninja",
-      "binaryDir": "${sourceDir}/build/x64-debug",
+      "binaryDir": "${sourceDir}/build/${presetName}",
+      "toolchainFile": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake",
+      "cacheVariables": {
+        "VCPKG_TARGET_TRIPLET": "x64-linux",
+        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON"
+      }
+    },
+    {
+      "name": "linux-wayland-debug",
+      "inherits": "linux-base",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Debug",
-        "CMAKE_TOOLCHAIN_FILE": "C:/Program Files/Microsoft Visual Studio/18/Community/VC/vcpkg/scripts/buildsystems/vcpkg.cmake",
-        "VCPKG_TARGET_TRIPLET": "x64-windows"
+        "VCPKG_MANIFEST_FEATURES": "linux-wayland",
+        "APP_WINDOW_BACKEND": "WAYLAND"
+      }
+    },
+    {
+      "name": "linux-x11-debug",
+      "inherits": "linux-base",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "VCPKG_MANIFEST_FEATURES": "linux-x11",
+        "APP_WINDOW_BACKEND": "X11"
+      }
+    },
+    {
+      "name": "windows-debug",
+      "generator": "Visual Studio 17 2022",
+      "architecture": "x64",
+      "binaryDir": "${sourceDir}/build/${presetName}",
+      "toolchainFile": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake",
+      "cacheVariables": {
+        "VCPKG_TARGET_TRIPLET": "x64-windows",
+        "VCPKG_MANIFEST_FEATURES": "",
+        "APP_WINDOW_BACKEND": "WINDOWS"
       }
     }
   ],
   "buildPresets": [
     {
-      "name": "default",
-      "configurePreset": "Visual Studio x64"
+      "name": "linux-wayland-debug",
+      "configurePreset": "linux-wayland-debug"
+    },
+    {
+      "name": "linux-x11-debug",
+      "configurePreset": "linux-x11-debug"
+    },
+    {
+      "name": "windows-debug",
+      "configurePreset": "windows-debug"
     }
   ]
 }
