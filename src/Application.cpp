@@ -10,9 +10,6 @@ namespace
 	constexpr uint32_t HEIGHT = 600;
 	constexpr uint32_t MAX_FRAMES_IN_FLIGHT = 2;
 
-	// The helpers below build one member each for the constructor's initializer list.
-	// They return by value; for the non-movable types this relies on C++17 guaranteed copy elision.
-
 	VulkanContext createVulkanContext(Window const& window)
 	{
 		constexpr std::array<char const*, 1> requiredDeviceExtensions =
@@ -25,7 +22,9 @@ namespace
 			.enableValidation           = Application::enableValidationLayers,
 			.requiredInstanceExtensions = window.getRequiredInstanceExtensions(),
 			.requiredDeviceExtensions   = requiredDeviceExtensions,
-			.createSurface              = [&window](VkInstance instance) { return window.createSurface(instance); }
+			.createSurface              = [&window](VkInstance instance) { 
+				return window.createSurface(instance); 
+			}
 		});
 	}
 
@@ -34,8 +33,9 @@ namespace
 		return RenderContext(context, RenderContextConfig
 		{
 			.framesInFlight    = MAX_FRAMES_IN_FLIGHT,
-			// Blocks while minimized; returns {0, 0} once the window is closing.
-			.getDrawableExtent = [&window] { return window.waitForDrawableExtent(); }
+			.getDrawableExtent = [&window] { 
+				return window.waitForDrawableExtent(); 
+			}
 		});
 	}
 }
