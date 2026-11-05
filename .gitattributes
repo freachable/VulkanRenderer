@@ -3,6 +3,12 @@
 ###############################################################################
 * text=auto
 
+# Files consumed by Linux tooling (nix/devenv, shell) must keep LF endings
+*.nix   text eol=lf
+*.yaml  text eol=lf
+*.lock  text eol=lf
+*.sh    text eol=lf
+
 ###############################################################################
 # Set default behavior for command prompt diff.
 #

@@ -43,9 +43,8 @@
     libffi
     dbus
 
-    # Shader compiler
-    shader-slang
-
+    # Compiler (C++ standard library is selected in CMakePresets.json and
+    # cmake/triplets/x64-linux-clang-libcxx.cmake)
     clang_21
     llvmPackages_21.libcxx
     llvmPackages_21.libcxx.dev
@@ -55,11 +54,10 @@
     # vcpkg
     VCPKG_ROOT = "${pkgs.vcpkg}/share/vcpkg";
 
+    # Picked up by vcpkg when building ports; the project itself gets the
+    # compiler from the "linux" preset.
     CC = "${pkgs.clang_21}/bin/clang";
     CXX = "${pkgs.clang_21}/bin/clang++";
-
-    CXXFLAGS = "-stdlib=libc++";
-    LDFLAGS = "-stdlib=libc++";
 
     # pkg-config search paths
     PKG_CONFIG_PATH = lib.makeSearchPath "lib/pkgconfig" [
@@ -99,18 +97,14 @@
       pkgs.xorg.libXi
       pkgs.xorg.libXext
     ];
-
-    # Vulkan validation layers
-    VK_LAYER_PATH = "${pkgs.vulkan-validation-layers}/share/vulkan/explicit_layer.d";
   };
 
   scripts.build.exec = ''
-    cmake --preset linux-wayland-debug
-    cmake --build --preset linux-wayland-debug
+    cmake --preset linux-debug
+    cmake --build --preset linux-debug
   '';
 
   scripts.run.exec = ''
-    cd build/linux-wayland-debug/VulkanRenderer
-    ./VulkanRenderer
+    ./build/linux-debug/bin/VulkanRenderer "$@"
   '';
 }

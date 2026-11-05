@@ -1,30 +1,17 @@
 {
-  "name": "vulkan-project",
-  "version": "1.0.0",
-  "builtin-baseline": "9a5dfef5d1a0438a7d24856a85bd60f309d355e9",
-  "features": {
-    "linux-wayland": {
-      "description": "Build with GLFW Wayland support",
-      "dependencies": [
-        {
-          "name": "glfw3",
-          "features": ["wayland"]
-        }
-      ]
-    },
-    "linux-x11": {
-      "description": "Build with GLFW X11 support",
-      "dependencies": [
-        {
-          "name": "glfw3",
-          "features": ["x11"]
-        }
-      ]
-    }
-  },
+  "$schema": "https://raw.githubusercontent.com/microsoft/vcpkg-tool/main/docs/vcpkg.schema.json",
+  "name": "vulkan-renderer",
+  "version": "0.1.0",
   "dependencies": [
-    "glfw3",
+    {
+      "name": "glfw3",
+      "features": [ { "name": "wayland", "platform": "linux" } ]
+    },
     "glm",
+    {
+      "name": "shader-slang",
+      "host": true
+    },
     "stb",
     "tinyobjloader",
     "vulkan",

@@ -57,6 +57,9 @@ compile_commands.json
 *.bak
 *.swp
 
+# CMake per-user presets (local paths such as VCPKG_ROOT)
+CMakeUserPresets.json
+
 # vcpkg
 vcpkg_installed/
 

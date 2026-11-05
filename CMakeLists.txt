@@ -1,30 +1,41 @@
-﻿cmake_minimum_required (VERSION 3.29)
+﻿cmake_minimum_required(VERSION 3.29)
 
-set (PROJECT_NAME "VulkanRenderer")
+project(VulkanRenderer LANGUAGES CXX)
 
-project (${PROJECT_NAME})
-
-set(SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/src")
-set(SHADERS_DIR "${CMAKE_CURRENT_SOURCE_DIR}/shaders")
-
-set(SHADER_SLANG_SOURCES "${SHADERS_DIR}/shader.slang")
-
-# Add option to enable/disable C++ 20 module
 option(ENABLE_CPP20_MODULE "Enable C++ 20 module support for Vulkan" OFF)
 
-# Enable C++ module dependency scanning only if C++ 20 module is enabled
-if(ENABLE_CPP20_MODULE)
-  set(CMAKE_CXX_SCAN_FOR_MODULES ON)
+# Scan for C++ module dependencies only if C++ 20 module is enabled
+# (CMake would otherwise scan every C++20 source by default)
+set(CMAKE_CXX_SCAN_FOR_MODULES ${ENABLE_CPP20_MODULE})
+
+# ---------------------------------------------------------------------------
+# Dependencies (all provided by vcpkg, see vcpkg.json)
+# ---------------------------------------------------------------------------
+find_package(glfw3 CONFIG REQUIRED)
+find_package(glm CONFIG REQUIRED)
+find_package(tinyobjloader CONFIG REQUIRED)
+find_package(Stb REQUIRED)
+find_package(Vulkan 1.4 REQUIRED)
+
+# slangc comes from the vcpkg "shader-slang" host dependency. The hint makes
+# sure it wins over a Vulkan SDK or distro copy that might also be on PATH.
+find_program(SLANGC_EXECUTABLE slangc
+  HINTS "${VCPKG_INSTALLED_DIR}/${VCPKG_HOST_TRIPLET}/tools/shader-slang"
+  REQUIRED
+)
+
+# Validation layers come from the vcpkg "vulkan-validationlayers" port. The
+# loader only finds them through VK_ADD_LAYER_PATH; the app sets that at
+# startup (debug builds only) unless it is already set in the environment.
+if(WIN32)
+  set(VALIDATION_LAYER_DIR "${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/bin")
+else()
+  set(VALIDATION_LAYER_DIR "${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/share/vulkan/explicit_layer.d")
 endif()
 
-list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/../CMake")
-
-find_package(glfw3 REQUIRED)
-find_package(glm REQUIRED)
-find_package(Vulkan 1.4 REQUIRED)
-find_package(tinyobjloader REQUIRED)
-
-# Set up Vulkan C++ module only if enabled
+# ---------------------------------------------------------------------------
+# Vulkan-Hpp, optionally as a C++20 module
+# ---------------------------------------------------------------------------
 if(ENABLE_CPP20_MODULE)
   add_library(VulkanCppModule)
   add_library(Vulkan::cppm ALIAS VulkanCppModule)
@@ -50,20 +61,11 @@ if(ENABLE_CPP20_MODULE)
   target_sources(VulkanCppModule
     PUBLIC
     FILE_SET cxx_modules TYPE CXX_MODULES
-    BASE_DIRS
-    "${Vulkan_INCLUDE_DIR}"
-    FILES
-    "${Vulkan_INCLUDE_DIR}/vulkan/vulkan.cppm"
-  )
-
-
-  # Add the vulkan.cppm file directly as a source file
-  target_sources(VulkanCppModule
-    PRIVATE
-    "${Vulkan_INCLUDE_DIR}/vulkan/vulkan.cppm"
+    BASE_DIRS "${Vulkan_INCLUDE_DIR}"
+    FILES "${Vulkan_INCLUDE_DIR}/vulkan/vulkan.cppm"
   )
 else()
-  # Create a dummy interface library when C++ 20 module is disabled
+  # Interface library carrying the same settings when modules are disabled
   add_library(VulkanCppModule INTERFACE)
   add_library(Vulkan::cppm ALIAS VulkanCppModule)
   target_link_libraries(VulkanCppModule INTERFACE Vulkan::Vulkan)
@@ -72,60 +74,83 @@ else()
   )
 endif()
 
-find_package(Stb REQUIRED)
-set(STB_INCLUDEDIR ${stb_INCLUDE_DIRS})
-
-find_program(SLANGC_EXECUTABLE slangc HINTS $ENV{VULKAN_SDK}/bin REQUIRED)
-
-set(TEMPLATE_DIR ${CMAKE_BINARY_DIR}/${PROJECT_NAME})
-
-add_executable (${PROJECT_NAME} "src/main.cpp")
-set_target_properties (${PROJECT_NAME} PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${TEMPLATE_DIR})
-set_target_properties (${PROJECT_NAME} PROPERTIES CXX_STANDARD 20)
-target_link_libraries (${PROJECT_NAME} Vulkan::cppm glfw)
-target_include_directories (${PROJECT_NAME} PRIVATE ${STB_INCLUDEDIR})
-
-# Add compile definition if C++ 20 module is enabled
-if(ENABLE_CPP20_MODULE)
-  target_compile_definitions(${PROJECT_NAME} PRIVATE USE_CPP20_MODULES=1)
+# ---------------------------------------------------------------------------
+# Output layout: the executable and the compiled shaders live in <build>/bin
+# (or <build>/bin/<config> for multi-config generators). The absolute shader
+# path is compiled into the app, so it works from any working directory.
+# ---------------------------------------------------------------------------
+get_property(IS_MULTI_CONFIG GLOBAL PROPERTY GENERATOR_IS_MULTI_CONFIG)
+if(IS_MULTI_CONFIG)
+  set(RUNTIME_DIR "${CMAKE_BINARY_DIR}/bin/$<CONFIG>")
+else()
+  set(RUNTIME_DIR "${CMAKE_BINARY_DIR}/bin")
 endif()
+set(SHADER_SPV "${RUNTIME_DIR}/shaders/slang.spv")
 
-# Define VULKAN_HPP_HANDLE_ERROR_OUT_OF_DATE_AS_SUCCESS to treat VK_ERROR_OUT_OF_DATE_KHR as a success code
-target_compile_definitions(${PROJECT_NAME} PRIVATE "VULKAN_HPP_HANDLE_ERROR_OUT_OF_DATE_AS_SUCCESS" )
+# ---------------------------------------------------------------------------
+# Application
+# ---------------------------------------------------------------------------
+add_executable(${PROJECT_NAME}
+  src/main.cpp
+  src/graphics/VulkanContext.cpp
+)
+target_include_directories(${PROJECT_NAME} PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/src")
 
-if(WIN32)
-  if(${CMAKE_GENERATOR} MATCHES "Visual Studio.*")
-    set_target_properties(${PROJECT_NAME} PROPERTIES VS_DEBUGGER_WORKING_DIRECTORY ${TEMPLATE_DIR})
-  endif()
-endif()
+set_target_properties(${PROJECT_NAME} PROPERTIES
+  CXX_STANDARD 20
+  CXX_STANDARD_REQUIRED ON
+  RUNTIME_OUTPUT_DIRECTORY "${RUNTIME_DIR}"
+)
 
-# Slang shader
+target_link_libraries(${PROJECT_NAME} PRIVATE
+  Vulkan::cppm
+  glfw
+  glm::glm
+  tinyobjloader::tinyobjloader
+)
+target_include_directories(${PROJECT_NAME} PRIVATE ${Stb_INCLUDE_DIR})
+
+target_compile_definitions(${PROJECT_NAME} PRIVATE
+  # Treat VK_ERROR_OUT_OF_DATE_KHR as a success code
+  VULKAN_HPP_HANDLE_ERROR_OUT_OF_DATE_AS_SUCCESS
+  "VR_VALIDATION_LAYER_DIR=\"${VALIDATION_LAYER_DIR}\""
+  "VR_SHADER_PATH=\"${SHADER_SPV}\""
+  $<$<BOOL:${ENABLE_CPP20_MODULE}>:USE_CPP20_MODULES=1>
+  # MSVC flags std::getenv as deprecated
+  $<$<CXX_COMPILER_ID:MSVC>:_CRT_SECURE_NO_WARNINGS>
+)
+
+# ---------------------------------------------------------------------------
+# Shaders
+# ---------------------------------------------------------------------------
 function(add_slang_shader_target TARGET)
-    cmake_parse_arguments(SHADER "" "" "SOURCES" ${ARGN})
+  cmake_parse_arguments(SHADER "" "OUTPUT" "SOURCES" ${ARGN})
 
-    if(NOT SHADER_SOURCES)
-        message(FATAL_ERROR "No Slang shader sources provided")
-    endif()
+  if(NOT SHADER_SOURCES)
+    message(FATAL_ERROR "No Slang shader sources provided")
+  endif()
 
-    set(SHADER_OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/shaders/slang.spv")
+  get_filename_component(SHADER_OUTPUT_DIR "${SHADER_OUTPUT}" DIRECTORY)
 
-    add_custom_command(
-        OUTPUT "${SHADER_OUTPUT}"
-        COMMAND ${CMAKE_COMMAND} -E make_directory
-                "${CMAKE_CURRENT_BINARY_DIR}/shaders"
-        COMMAND "${SLANGC_EXECUTABLE}"
-                ${SHADER_SOURCES}
-                -entry vertMain
-                -entry fragMain
-                -o "${SHADER_OUTPUT}"
-        DEPENDS ${SHADER_SOURCES}
-        WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
-        COMMENT "Compiling Slang shaders"
-        VERBATIM
-    )
+  add_custom_command(
+    OUTPUT "${SHADER_OUTPUT}"
+    COMMAND "${CMAKE_COMMAND}" -E make_directory "${SHADER_OUTPUT_DIR}"
+    COMMAND "${SLANGC_EXECUTABLE}"
+            ${SHADER_SOURCES}
+            -entry vertMain
+            -entry fragMain
+            -o "${SHADER_OUTPUT}"
+    DEPENDS ${SHADER_SOURCES}
+    WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
+    COMMENT "Compiling Slang shaders"
+    VERBATIM
+  )
 
-    add_custom_target(${TARGET} DEPENDS "${SHADER_OUTPUT}")
+  add_custom_target(${TARGET} DEPENDS "${SHADER_OUTPUT}")
 endfunction()
 
-add_slang_shader_target(VulkanRendererShaders SOURCES ${SHADER_SLANG_SOURCES})
+add_slang_shader_target(VulkanRendererShaders
+  SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/shaders/shader.slang"
+  OUTPUT  "${SHADER_SPV}"
+)
 add_dependencies(${PROJECT_NAME} VulkanRendererShaders)
