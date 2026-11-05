@@ -97,6 +97,7 @@ add_executable(${PROJECT_NAME}
   src/graphics/Shader.cpp
   src/graphics/GraphicsPipeline.cpp
   src/graphics/Buffer.cpp
+  src/graphics/FrameData.cpp
 )
 target_include_directories(${PROJECT_NAME} PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/src")
 

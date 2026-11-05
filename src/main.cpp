@@ -18,6 +18,7 @@
 #include "graphics/GraphicsPipeline.hpp"
 #include "graphics/Vertex.hpp"
 #include "graphics/Buffer.hpp"
+#include "graphics/FrameData.hpp"
 
 #define GLFW_INCLUDE_NONE        // REQUIRED only for GLFW CreateWindowSurface.
 #include <GLFW/glfw3.h>
@@ -68,21 +69,19 @@ private:
 	std::optional<Swapchain> swapChain;
 	std::optional<GraphicsPipeline> graphicsPipeline;
 
-	vk::raii::CommandPool    commandPool = nullptr;
-	std::vector<vk::raii::CommandBuffer> commandBuffers;
+	vk::raii::CommandPool commandPool = nullptr;
 
-	std::vector<vk::raii::Semaphore> presentCompleteSemaphores;
+	// One per swapchain image, not per frame: the semaphore may only be reused once its present is done.
 	std::vector<vk::raii::Semaphore> renderFinishedSemaphores;
-	std::vector<vk::raii::Fence> inFlightFences;
-	uint32_t frameIndex = 0;
 
 	std::optional<Buffer> vertexBuffer;
 	std::optional<Buffer> indexBuffer;
 
-	std::vector<Buffer> uniformBuffers;
+	vk::raii::DescriptorPool descriptorPool = nullptr;
 
-	vk::raii::DescriptorPool			 descriptorPool = nullptr;
-	std::vector<vk::raii::DescriptorSet> descriptorSets;
+	// Declared after commandPool and descriptorPool, so it is destroyed before them.
+	std::vector<FrameData> frames;
+	uint32_t frameIndex = 0;
 
 	bool framebufferResized = false;
 
@@ -127,11 +126,9 @@ private:
 		createCommandPool();
 		createVertexBuffer();
 		createIndexBuffer();
-		createUniformBuffers();
 		createDescriptorPool();
-		createDescriptorSets();
-		createCommandBuffers();
-		createSyncObjects();
+		createFrames();
+		createRenderFinishedSemaphores();
 	}
 
 	void mainLoop()
@@ -147,13 +144,15 @@ private:
 
 	void drawFrame()
 	{
-		auto fenceResult = vulkanContext->getDevice().waitForFences(*inFlightFences[frameIndex], vk::True, UINT64_MAX);
+		FrameData& frame = frames[frameIndex];
+
+		auto fenceResult = vulkanContext->getDevice().waitForFences(*frame.inFlight, vk::True, UINT64_MAX);
 		if (fenceResult != vk::Result::eSuccess)
 		{
 			throw std::runtime_error("failed to wait for fence!");
 		}
 
-		auto [result, imageIndex] = swapChain->getHandle().acquireNextImage(UINT64_MAX, *presentCompleteSemaphores[frameIndex], nullptr);
+		auto [result, imageIndex] = swapChain->getHandle().acquireNextImage(UINT64_MAX, *frame.imageAvailable, nullptr);
 
 		if (result == vk::Result::eErrorOutOfDateKHR)
 		{
@@ -167,27 +166,27 @@ private:
 		}
 
 		// Only reset the fence if we are submitting work
-		vulkanContext->getDevice().resetFences(*inFlightFences[frameIndex]);
+		vulkanContext->getDevice().resetFences(*frame.inFlight);
 
-		commandBuffers[frameIndex].reset();
-		recordCommandBuffer(imageIndex);
+		frame.commandBuffer.reset();
+		recordCommandBuffer(frame, imageIndex);
 
 		vk::PipelineStageFlags waitDestinationStageMask(vk::PipelineStageFlagBits::eColorAttachmentOutput);
 
-		updateUniformBuffer(frameIndex);
+		updateUniformBuffer(frame);
 
 		const vk::SubmitInfo submitInfo
-		{ 
+		{
 			.waitSemaphoreCount = 1,
-			.pWaitSemaphores = &*presentCompleteSemaphores[frameIndex],
+			.pWaitSemaphores = &*frame.imageAvailable,
 			.pWaitDstStageMask = &waitDestinationStageMask,
 			.commandBufferCount = 1,
-			.pCommandBuffers = &*commandBuffers[frameIndex],
+			.pCommandBuffers = &*frame.commandBuffer,
 			.signalSemaphoreCount = 1,
 			.pSignalSemaphores = &*renderFinishedSemaphores[imageIndex]
 		};
 
-		vulkanContext->getGraphicsQueue().submit(submitInfo, *inFlightFences[frameIndex]);
+		vulkanContext->getGraphicsQueue().submit(submitInfo, *frame.inFlight);
 
 		const vk::PresentInfoKHR presentInfoKHR
 		{ 
@@ -232,45 +231,23 @@ private:
 		descriptorPool = vk::raii::DescriptorPool(vulkanContext->getDevice(), poolInfo);
 	}
 
-	void createDescriptorSets()
+	void createFrames()
 	{
-		std::vector<vk::DescriptorSetLayout> layouts(MAX_FRAMES_IN_FLIGHT, *graphicsPipeline->getDescriptorSetLayout());
-
-		vk::DescriptorSetAllocateInfo allocInfo
-		{ 
-			.descriptorPool = descriptorPool,
-			.descriptorSetCount = static_cast<uint32_t>(layouts.size()),
-			.pSetLayouts = layouts.data()
-		};
-
-		descriptorSets = vulkanContext->getDevice().allocateDescriptorSets(allocInfo);
+		frames.reserve(MAX_FRAMES_IN_FLIGHT);
 
 		for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
 		{
-			vk::DescriptorBufferInfo bufferInfo
-			{ 
-				.buffer = uniformBuffers[i].getHandle(), 
-				.offset = 0, 
-				.range = sizeof(UniformBufferObject)
-			};
-
-			vk::WriteDescriptorSet descriptorWrite
-			{ 
-				.dstSet = descriptorSets[i],
-				.dstBinding = 0,
-				.dstArrayElement = 0,
-				.descriptorCount = 1,
-				.descriptorType = vk::DescriptorType::eUniformBuffer,
-				.pBufferInfo = &bufferInfo
-			};
-
-			vulkanContext->getDevice().updateDescriptorSets(descriptorWrite, {});
+			frames.emplace_back(
+				*vulkanContext,
+				commandPool,
+				descriptorPool,
+				graphicsPipeline->getDescriptorSetLayout(),
+				sizeof(UniformBufferObject)
+			);
 		}
-
-
 	}
 
-	void updateUniformBuffer(uint32_t currentImage)
+	void updateUniformBuffer(FrameData& frame)
 	{
 		static auto startTime = std::chrono::high_resolution_clock::now();
 
@@ -282,7 +259,7 @@ private:
 		ubo.view = lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
 		ubo.proj = glm::perspective(glm::radians(45.0f), static_cast<float>(swapChain->getExtent().width) / static_cast<float>(swapChain->getExtent().height), 0.1f, 10.0f);
 
-		memcpy(uniformBuffers[currentImage].getMapped(), &ubo, sizeof(ubo));
+		memcpy(frame.uniformBuffer.getMapped(), &ubo, sizeof(ubo));
 	}
 
 	void recreateSwapChain()
@@ -370,33 +347,14 @@ private:
 		commandPool = vk::raii::CommandPool(vulkanContext->getDevice(), poolInfo);
 	}
 
-	void createCommandBuffers()
+	void recordCommandBuffer(FrameData& frame, uint32_t imageIndex)
 	{
-		vk::CommandBufferAllocateInfo allocInfo
-		{ 
-			.commandPool = commandPool, 
-			.level = vk::CommandBufferLevel::ePrimary, 
-			.commandBufferCount = MAX_FRAMES_IN_FLIGHT
-		};
-
-		commandBuffers = vk::raii::CommandBuffers(vulkanContext->getDevice(), allocInfo);
-	}
-
-	void createUniformBuffers()
-	{
-		for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
-		{
-			uniformBuffers.push_back(Buffer::forUniform(*vulkanContext, sizeof(UniformBufferObject)));
-		}
-	}
-
-	void recordCommandBuffer(uint32_t imageIndex)
-	{
-		auto& commandBuffer = commandBuffers[frameIndex];
+		auto& commandBuffer = frame.commandBuffer;
 		commandBuffer.begin({});
 
 		// Before starting rendering, transition the swapchain image to vk::ImageLayout::eColorAttachmentOptimal
 		transition_image_layout(
+			commandBuffer,
 			imageIndex,
 			vk::ImageLayout::eUndefined,
 			vk::ImageLayout::eColorAttachmentOptimal,
@@ -439,12 +397,13 @@ private:
 		commandBuffer.setViewport(0, vk::Viewport(0.0f, static_cast<float>(swapChain->getExtent().height), static_cast<float>(swapChain->getExtent().width), -static_cast<float>(swapChain->getExtent().height), 0.0f, 1.0f));
 		commandBuffer.setScissor(0, vk::Rect2D(vk::Offset2D(0, 0), swapChain->getExtent()));
 
-		commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, graphicsPipeline->getLayout(), 0, *descriptorSets[frameIndex], nullptr);
+		commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, graphicsPipeline->getLayout(), 0, *frame.descriptorSet, nullptr);
 		commandBuffer.drawIndexed(static_cast<uint32_t>(indices.size()), 1, 0, 0, 0);
 
 		commandBuffer.endRendering();
 
 		transition_image_layout(
+			commandBuffer,
 			imageIndex,
 			vk::ImageLayout::eColorAttachmentOptimal,
 			vk::ImageLayout::ePresentSrcKHR,
@@ -458,6 +417,7 @@ private:
 	}
 
 	void transition_image_layout(
+		vk::raii::CommandBuffer& commandBuffer,
 		uint32_t                imageIndex,
 		vk::ImageLayout         old_layout,
 		vk::ImageLayout         new_layout,
@@ -495,22 +455,16 @@ private:
 			.pImageMemoryBarriers = &barrier 
 		};
 
-		commandBuffers[frameIndex].pipelineBarrier2(dependency_info);
+		commandBuffer.pipelineBarrier2(dependency_info);
 	}
 
-	void createSyncObjects()
+	void createRenderFinishedSemaphores()
 	{
-		assert(presentCompleteSemaphores.empty() && renderFinishedSemaphores.empty() && inFlightFences.empty());
+		assert(renderFinishedSemaphores.empty());
 
 		for (size_t i = 0; i < swapChain->getImages().size(); i++)
 		{
 			renderFinishedSemaphores.emplace_back(vulkanContext->getDevice(), vk::SemaphoreCreateInfo());
-		}
-
-		for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
-		{
-			presentCompleteSemaphores.emplace_back(vulkanContext->getDevice(), vk::SemaphoreCreateInfo());
-			inFlightFences.emplace_back(vulkanContext->getDevice(), vk::FenceCreateInfo{ .flags = vk::FenceCreateFlagBits::eSignaled });
 		}
 	}
 
