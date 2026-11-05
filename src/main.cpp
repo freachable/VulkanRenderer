@@ -17,6 +17,7 @@
 #include "graphics/Shader.hpp"
 #include "graphics/GraphicsPipeline.hpp"
 #include "graphics/Vertex.hpp"
+#include "graphics/Buffer.hpp"
 
 #define GLFW_INCLUDE_NONE        // REQUIRED only for GLFW CreateWindowSurface.
 #include <GLFW/glfw3.h>
@@ -75,14 +76,10 @@ private:
 	std::vector<vk::raii::Fence> inFlightFences;
 	uint32_t frameIndex = 0;
 
-	vk::raii::Buffer       vertexBuffer = nullptr;
-	vk::raii::DeviceMemory vertexBufferMemory = nullptr;
-	vk::raii::Buffer       indexBuffer = nullptr;
-	vk::raii::DeviceMemory indexBufferMemory = nullptr;
+	std::optional<Buffer> vertexBuffer;
+	std::optional<Buffer> indexBuffer;
 
-	std::vector<vk::raii::Buffer>       uniformBuffers;
-	std::vector<vk::raii::DeviceMemory> uniformBuffersMemory;
-	std::vector<void*>                 uniformBuffersMapped;
+	std::vector<Buffer> uniformBuffers;
 
 	vk::raii::DescriptorPool			 descriptorPool = nullptr;
 	std::vector<vk::raii::DescriptorSet> descriptorSets;
@@ -252,7 +249,7 @@ private:
 		{
 			vk::DescriptorBufferInfo bufferInfo
 			{ 
-				.buffer = uniformBuffers[i], 
+				.buffer = uniformBuffers[i].getHandle(), 
 				.offset = 0, 
 				.range = sizeof(UniformBufferObject)
 			};
@@ -285,7 +282,7 @@ private:
 		ubo.view = lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
 		ubo.proj = glm::perspective(glm::radians(45.0f), static_cast<float>(swapChain->getExtent().width) / static_cast<float>(swapChain->getExtent().height), 0.1f, 10.0f);
 
-		memcpy(uniformBuffersMapped[currentImage], &ubo, sizeof(ubo));
+		memcpy(uniformBuffers[currentImage].getMapped(), &ubo, sizeof(ubo));
 	}
 
 	void recreateSwapChain()
@@ -389,16 +386,7 @@ private:
 	{
 		for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
 		{
-			vk::DeviceSize bufferSize = sizeof(UniformBufferObject);
-			auto [buffer, bufferMem] = createBuffer(
-				bufferSize, 
-				vk::BufferUsageFlagBits::eUniformBuffer, 
-				vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent
-			);
-
-			uniformBuffers.emplace_back(std::move(buffer));
-			uniformBuffersMemory.emplace_back(std::move(bufferMem));
-			uniformBuffersMapped.emplace_back(uniformBuffersMemory.back().mapMemory(0, bufferSize));
+			uniformBuffers.push_back(Buffer::forUniform(*vulkanContext, sizeof(UniformBufferObject)));
 		}
 	}
 
@@ -418,7 +406,7 @@ private:
 			vk::PipelineStageFlagBits2::eColorAttachmentOutput         // dstStage
 		);
 
-		vk::ClearValue  clearColor = vk::ClearColorValue(0.0f, 0.0f, 0.0f, 1.0f);
+		vk::ClearValue clearColor = vk::ClearColorValue(0.0f, 0.0f, 0.0f, 1.0f);
 
 		vk::RenderingAttachmentInfo attachmentInfo = 
 		{
@@ -445,8 +433,8 @@ private:
 
 		commandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics, *graphicsPipeline->getHandle());
 
-		commandBuffer.bindVertexBuffers(0, *vertexBuffer, { 0 });
-		commandBuffer.bindIndexBuffer(*indexBuffer, 0, vk::IndexType::eUint16);
+		commandBuffer.bindVertexBuffers(0, *vertexBuffer->getHandle(), { 0 });
+		commandBuffer.bindIndexBuffer(*indexBuffer->getHandle(), 0, vk::IndexType::eUint16);
 
 		commandBuffer.setViewport(0, vk::Viewport(0.0f, static_cast<float>(swapChain->getExtent().height), static_cast<float>(swapChain->getExtent().width), -static_cast<float>(swapChain->getExtent().height), 0.0f, 1.0f));
 		commandBuffer.setScissor(0, vk::Rect2D(vk::Offset2D(0, 0), swapChain->getExtent()));
@@ -528,107 +516,14 @@ private:
 
 	void createVertexBuffer()
 	{
-		vk::DeviceSize bufferSize = sizeof(vertices[0]) * vertices.size();
-
-		auto [stagingBuffer, stagingBufferMemory] = createBuffer(
-			bufferSize, 
-			vk::BufferUsageFlagBits::eTransferSrc, vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent
-		);
-
-		void* dataStaging = stagingBufferMemory.mapMemory(0, bufferSize);
-		memcpy(dataStaging, vertices.data(), bufferSize);
-		stagingBufferMemory.unmapMemory();
-
-		std::tie(vertexBuffer, vertexBufferMemory) = createBuffer(
-			bufferSize, 
-			vk::BufferUsageFlagBits::eVertexBuffer | vk::BufferUsageFlagBits::eTransferDst, vk::MemoryPropertyFlagBits::eDeviceLocal
-		);
-
-		copyBuffer(stagingBuffer, vertexBuffer, bufferSize);
+		vertexBuffer.emplace(Buffer::forVertices(*vulkanContext, commandPool, vertices));
 	}
 
 	void createIndexBuffer()
 	{
-		vk::DeviceSize bufferSize = sizeof(indices[0]) * indices.size();
-
-		auto [stagingBuffer, stagingBufferMemory] = createBuffer(
-			bufferSize, 
-			vk::BufferUsageFlagBits::eTransferSrc, vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent
-		);
-
-		void* data = stagingBufferMemory.mapMemory(0, bufferSize);
-		memcpy(data, indices.data(), (size_t)bufferSize);
-		stagingBufferMemory.unmapMemory();
-
-		std::tie(indexBuffer, indexBufferMemory) = createBuffer(
-			bufferSize, 
-			vk::BufferUsageFlagBits::eIndexBuffer | vk::BufferUsageFlagBits::eTransferDst, vk::MemoryPropertyFlagBits::eDeviceLocal
-		);
-
-		copyBuffer(stagingBuffer, indexBuffer, bufferSize);
+		indexBuffer.emplace(Buffer::forIndices(*vulkanContext, commandPool, indices));
 	}
 
-	void copyBuffer(vk::raii::Buffer& srcBuffer, vk::raii::Buffer& dstBuffer, vk::DeviceSize size)
-	{
-		vk::CommandBufferAllocateInfo allocInfo
-		{ 
-			.commandPool = commandPool, 
-			.level = vk::CommandBufferLevel::ePrimary, .
-			commandBufferCount = 1 
-		};
-
-		vk::raii::CommandBuffer commandCopyBuffer = std::move(vulkanContext->getDevice().allocateCommandBuffers(allocInfo).front());
-
-		commandCopyBuffer.begin({ .flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit});
-		commandCopyBuffer.copyBuffer(*srcBuffer, *dstBuffer, vk::BufferCopy(0, 0, size));
-		commandCopyBuffer.end();
-
-		vulkanContext->getGraphicsQueue().submit(vk::SubmitInfo{ .commandBufferCount = 1, .pCommandBuffers = &*commandCopyBuffer }, nullptr);
-		vulkanContext->getGraphicsQueue().waitIdle();
-	}
-
-	uint32_t findMemoryType(uint32_t typeFilter, vk::MemoryPropertyFlags properties) 
-	{
-		vk::PhysicalDeviceMemoryProperties memProperties = vulkanContext->getPhysicalDevice().getMemoryProperties();
-
-		for (uint32_t i = 0; i < memProperties.memoryTypeCount; i++)
-		{
-			if ((typeFilter & (1 << i)) && (memProperties.memoryTypes[i].propertyFlags & properties) == properties)
-			{
-				return i;
-			}
-		}
-
-		throw std::runtime_error("failed to find suitable memory type!");
-	}
-
-	std::pair<vk::raii::Buffer, vk::raii::DeviceMemory> createBuffer(vk::DeviceSize size, vk::BufferUsageFlags usage, vk::MemoryPropertyFlags properties)
-	{
-		vk::BufferCreateInfo bufferInfo
-		{ 
-			.size = size, 
-			.usage = usage, 
-			.sharingMode = vk::SharingMode::eExclusive
-		};
-
-		vk::raii::Buffer buffer = vk::raii::Buffer(vulkanContext->getDevice(), bufferInfo);
-		vk::MemoryRequirements memRequirements = buffer.getMemoryRequirements();
-
-		vk::MemoryAllocateInfo allocInfo
-		{ 
-			.allocationSize = memRequirements.size, 
-			.memoryTypeIndex = findMemoryType(memRequirements.memoryTypeBits, properties)
-		};
-
-		vk::raii::DeviceMemory bufferMemory = vk::raii::DeviceMemory(vulkanContext->getDevice(), allocInfo);
-		buffer.bindMemory(*bufferMemory, 0);
-
-		return 
-		{ 
-			std::move(buffer), 
-			std::move(bufferMemory)
-		};
-	}
 };
 
 int main()
