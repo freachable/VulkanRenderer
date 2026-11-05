@@ -4,15 +4,14 @@
 #include "VulkanContext.hpp"
 #include "Buffer.hpp"
 
-// Everything one frame in flight owns. MAX_FRAMES_IN_FLIGHT of these are cycled.
+// The application's resources for one frame in flight: one of these per RenderContext frame slot,
+// indexed by Frame::frameIndex. The command buffer and sync objects live in RenderContext.
 //
-// The command buffer and descriptor set come from pools owned elsewhere, so a FrameData
-// must be destroyed before those pools.
+// The descriptor set comes from a pool owned elsewhere, so a FrameData must be destroyed before that pool.
 struct FrameData
 {
 	// The descriptor set layout must have a uniform buffer at binding 0; it is pointed at uniformBuffer.
 	FrameData(VulkanContext const& context,
-	          vk::raii::CommandPool const& commandPool,
 	          vk::raii::DescriptorPool const& descriptorPool,
 	          vk::raii::DescriptorSetLayout const& descriptorSetLayout,
 	          vk::DeviceSize uniformBufferSize);
@@ -22,9 +21,6 @@ struct FrameData
 	FrameData(FrameData const&) = delete;
 	FrameData& operator=(FrameData const&) = delete;
 
-	vk::raii::CommandBuffer commandBuffer  = nullptr;
-	vk::raii::Semaphore     imageAvailable = nullptr; // Signaled when the acquired swapchain image is ready.
-	vk::raii::Fence         inFlight       = nullptr; // Signaled when the GPU has finished this frame; created signaled.
 	Buffer                  uniformBuffer;
-	vk::raii::DescriptorSet descriptorSet  = nullptr;
+	vk::raii::DescriptorSet descriptorSet = nullptr;
 };

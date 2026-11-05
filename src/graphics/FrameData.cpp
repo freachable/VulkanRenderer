@@ -4,18 +4,6 @@
 
 namespace
 {
-	vk::raii::CommandBuffer allocateCommandBuffer(VulkanContext const& context, vk::raii::CommandPool const& commandPool)
-	{
-		vk::CommandBufferAllocateInfo allocInfo
-		{
-			.commandPool = commandPool,
-			.level = vk::CommandBufferLevel::ePrimary,
-			.commandBufferCount = 1
-		};
-
-		return std::move(vk::raii::CommandBuffers(context.getDevice(), allocInfo).front());
-	}
-
 	vk::raii::DescriptorSet allocateDescriptorSet(VulkanContext const& context,
 	                                              vk::raii::DescriptorPool const& descriptorPool,
 	                                              vk::raii::DescriptorSetLayout const& descriptorSetLayout,
@@ -54,14 +42,10 @@ namespace
 }
 
 FrameData::FrameData(VulkanContext const& context,
-                     vk::raii::CommandPool const& commandPool,
                      vk::raii::DescriptorPool const& descriptorPool,
                      vk::raii::DescriptorSetLayout const& descriptorSetLayout,
                      vk::DeviceSize uniformBufferSize)
-	: commandBuffer(allocateCommandBuffer(context, commandPool))
-	, imageAvailable(context.getDevice(), vk::SemaphoreCreateInfo{})
-	, inFlight(context.getDevice(), vk::FenceCreateInfo{ .flags = vk::FenceCreateFlagBits::eSignaled })
-	, uniformBuffer(Buffer::forUniform(context, uniformBufferSize))
+	: uniformBuffer(Buffer::forUniform(context, uniformBufferSize))
 	, descriptorSet(allocateDescriptorSet(context, descriptorPool, descriptorSetLayout, uniformBuffer, uniformBufferSize))
 {
 }
