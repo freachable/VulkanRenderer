@@ -92,6 +92,7 @@ set(SHADER_SPV "${RUNTIME_DIR}/shaders/slang.spv")
 # ---------------------------------------------------------------------------
 add_executable(${PROJECT_NAME}
   src/main.cpp
+  src/Application.cpp
   src/graphics/VulkanContext.cpp
   src/graphics/Swapchain.cpp
   src/graphics/Shader.cpp
