@@ -93,6 +93,7 @@ set(SHADER_SPV "${RUNTIME_DIR}/shaders/slang.spv")
 add_executable(${PROJECT_NAME}
   src/main.cpp
   src/graphics/VulkanContext.cpp
+  src/graphics/Swapchain.cpp
 )
 target_include_directories(${PROJECT_NAME} PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/src")
 

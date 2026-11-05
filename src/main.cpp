@@ -14,6 +14,7 @@
 
 #include "graphics/Vulkan.hpp"
 #include "graphics/VulkanContext.hpp"
+#include "graphics/Swapchain.hpp"
 
 #define GLFW_INCLUDE_NONE        // REQUIRED only for GLFW CreateWindowSurface.
 #include <GLFW/glfw3.h>
@@ -88,11 +89,7 @@ private:
 	GLFWwindow* window = nullptr;
 
 	std::optional<VulkanContext> vulkanContext;
-
-	vk::raii::SwapchainKHR swapChain = nullptr;
-	std::vector<vk::Image> swapChainImages;
-	vk::SurfaceFormatKHR   swapChainSurfaceFormat;
-	vk::Extent2D           swapChainExtent;
+	std::optional<Swapchain> swapChain;
 
 	vk::raii::DescriptorSetLayout descriptorSetLayout = nullptr;
 	vk::raii::PipelineLayout      pipelineLayout = nullptr;
@@ -116,8 +113,6 @@ private:
 
 	vk::raii::DescriptorPool			 descriptorPool = nullptr;
 	std::vector<vk::raii::DescriptorSet> descriptorSets;
-
-	std::vector<vk::raii::ImageView> swapChainImageViews;
 
 	bool framebufferResized = false;
 
@@ -157,8 +152,7 @@ private:
 	void initVulkan()
 	{
 		createVulkanContext();
-		createSwapChain();
-		createImageViews();
+		swapChain.emplace(*vulkanContext, getFramebufferExtent());
 		createDescriptorSetLayout();
 		createGraphicsPipeline();
 		createCommandPool();
@@ -190,7 +184,7 @@ private:
 			throw std::runtime_error("failed to wait for fence!");
 		}
 
-		auto [result, imageIndex] = swapChain.acquireNextImage(UINT64_MAX, *presentCompleteSemaphores[frameIndex], nullptr);
+		auto [result, imageIndex] = swapChain->getHandle().acquireNextImage(UINT64_MAX, *presentCompleteSemaphores[frameIndex], nullptr);
 
 		if (result == vk::Result::eErrorOutOfDateKHR)
 		{
@@ -231,7 +225,7 @@ private:
 			.waitSemaphoreCount = 1,
 			.pWaitSemaphores = &*renderFinishedSemaphores[imageIndex],
 			.swapchainCount = 1,
-			.pSwapchains = &*swapChain,
+			.pSwapchains = &*swapChain->getHandle(),
 			.pImageIndices = &imageIndex
 		};
 
@@ -317,7 +311,7 @@ private:
 		UniformBufferObject ubo{};
 		ubo.model = rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
 		ubo.view = lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
-		ubo.proj = glm::perspective(glm::radians(45.0f), static_cast<float>(swapChainExtent.width) / static_cast<float>(swapChainExtent.height), 0.1f, 10.0f);
+		ubo.proj = glm::perspective(glm::radians(45.0f), static_cast<float>(swapChain->getExtent().width) / static_cast<float>(swapChain->getExtent().height), 0.1f, 10.0f);
 
 		memcpy(uniformBuffersMapped[currentImage], &ubo, sizeof(ubo));
 	}
@@ -340,21 +334,12 @@ private:
 
 		vulkanContext->getDevice().waitIdle();
 
-		cleanupSwapChain();
-
-		createSwapChain();
-		createImageViews();
-	}
-
-	void cleanupSwapChain()
-	{
-		swapChainImageViews.clear();
-		swapChain = nullptr;
+		swapChain->recreate(getFramebufferExtent());
 	}
 
 	void cleanup()
 	{
-		cleanupSwapChain();
+		swapChain.reset();
 
 		glfwDestroyWindow(window);
 		glfwTerminate();
@@ -387,95 +372,11 @@ private:
 		});
 	}
 
-	vk::Extent2D chooseSwapExtent(vk::SurfaceCapabilitiesKHR const& capabilities)
+	vk::Extent2D getFramebufferExtent() const
 	{
-		// currentExtent is only set to the special "undefined" value described above
-		// when the window manager lets us choose the extent ourselves; any other value
-		// means the surface already dictates a fixed extent that we must use as-is.
-		if (capabilities.currentExtent.width != std::numeric_limits<uint32_t>::max())
-		{
-			return capabilities.currentExtent;
-		}
-		int width, height;
+		int width = 0, height = 0;
 		glfwGetFramebufferSize(window, &width, &height);
-
-		return {
-			std::clamp<uint32_t>(width, capabilities.minImageExtent.width, capabilities.maxImageExtent.width),
-			std::clamp<uint32_t>(height, capabilities.minImageExtent.height, capabilities.maxImageExtent.height)
-		};
-	}
-
-	vk::SurfaceFormatKHR chooseSwapSurfaceFormat(const std::vector<vk::SurfaceFormatKHR>& availableFormats) {
-		const auto formatIt = std::ranges::find_if(
-			availableFormats,
-			[](const auto& format) { return format.format == vk::Format::eB8G8R8A8Srgb && format.colorSpace == vk::ColorSpaceKHR::eSrgbNonlinear; });
-		return formatIt != availableFormats.end() ? *formatIt : availableFormats[0];
-	}
-
-	vk::PresentModeKHR chooseSwapPresentMode(std::vector<vk::PresentModeKHR> const& availablePresentModes)
-	{
-		assert(std::ranges::any_of(availablePresentModes, [](auto presentMode) { return presentMode == vk::PresentModeKHR::eFifo; }));
-		return std::ranges::any_of(availablePresentModes,
-			[](const vk::PresentModeKHR value) { return vk::PresentModeKHR::eMailbox == value; }) ?
-			vk::PresentModeKHR::eMailbox :
-			vk::PresentModeKHR::eFifo;
-	}
-
-	uint32_t chooseSwapMinImageCount(vk::SurfaceCapabilitiesKHR const& surfaceCapabilities)
-	{
-		auto minImageCount = std::max(3u, surfaceCapabilities.minImageCount);
-		if ((0 < surfaceCapabilities.maxImageCount) && (surfaceCapabilities.maxImageCount < minImageCount))
-		{
-			minImageCount = surfaceCapabilities.maxImageCount;
-		}
-		return minImageCount;
-	}
-
-	void createSwapChain() {
-		vk::SurfaceCapabilitiesKHR surfaceCapabilities = vulkanContext->getPhysicalDevice().getSurfaceCapabilitiesKHR(*vulkanContext->getSurface());
-		swapChainExtent = chooseSwapExtent(surfaceCapabilities);
-		uint32_t minImageCount = chooseSwapMinImageCount(surfaceCapabilities);
-
-		std::vector<vk::SurfaceFormatKHR> availableFormats = vulkanContext->getPhysicalDevice().getSurfaceFormatsKHR(*vulkanContext->getSurface());
-		swapChainSurfaceFormat = chooseSwapSurfaceFormat(availableFormats);
-
-		std::vector<vk::PresentModeKHR> availablePresentModes = vulkanContext->getPhysicalDevice().getSurfacePresentModesKHR(*vulkanContext->getSurface());
-
-		vk::SwapchainCreateInfoKHR swapChainCreateInfo{ 
-			.surface = *vulkanContext->getSurface(),
-			.minImageCount = minImageCount,
-			.imageFormat = swapChainSurfaceFormat.format,
-			.imageColorSpace = swapChainSurfaceFormat.colorSpace,
-			.imageExtent = swapChainExtent,
-			.imageArrayLayers = 1,
-			.imageUsage = vk::ImageUsageFlagBits::eColorAttachment,
-			.imageSharingMode = vk::SharingMode::eExclusive,
-			.preTransform = surfaceCapabilities.currentTransform,
-			.compositeAlpha = vk::CompositeAlphaFlagBitsKHR::eOpaque,
-			.presentMode = chooseSwapPresentMode(availablePresentModes),
-			.clipped = true 
-		};
-
-		swapChain = vk::raii::SwapchainKHR(vulkanContext->getDevice(), swapChainCreateInfo);
-		swapChainImages = swapChain.getImages();
-	}
-
-	void createImageViews()
-	{
-		assert(swapChainImageViews.empty());
-
-		vk::ImageViewCreateInfo imageViewCreateInfo
-		{ 
-			.viewType = vk::ImageViewType::e2D,
-			.format = swapChainSurfaceFormat.format,
-			.subresourceRange = { vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1 } 
-		};
-
-		for (auto& image : swapChainImages)
-		{
-			imageViewCreateInfo.image = image;
-			swapChainImageViews.emplace_back(vulkanContext->getDevice(), imageViewCreateInfo);
-		}
+		return { static_cast<uint32_t>(width), static_cast<uint32_t>(height) };
 	}
 
 	void createGraphicsPipeline() 
@@ -571,7 +472,7 @@ private:
 		vk::PipelineRenderingCreateInfo pipelineRenderingCreateInfo
 		{ 
 			.colorAttachmentCount = 1, 
-			.pColorAttachmentFormats = &swapChainSurfaceFormat.format
+			.pColorAttachmentFormats = &swapChain->getSurfaceFormat().format
 		};
 
 		vk::StructureChain<vk::GraphicsPipelineCreateInfo, vk::PipelineRenderingCreateInfo> pipelineCreateInfoChain = 
@@ -591,7 +492,7 @@ private:
 			},
 			{ 
 				.colorAttachmentCount = 1, 
-				.pColorAttachmentFormats = &swapChainSurfaceFormat.format
+				.pColorAttachmentFormats = &swapChain->getSurfaceFormat().format
 			} 
 		};
 
@@ -658,7 +559,7 @@ private:
 
 		vk::RenderingAttachmentInfo attachmentInfo = 
 		{
-			.imageView = swapChainImageViews[imageIndex],
+			.imageView = swapChain->getImageViews()[imageIndex],
 			.imageLayout = vk::ImageLayout::eColorAttachmentOptimal,
 			.loadOp = vk::AttachmentLoadOp::eClear,
 			.storeOp = vk::AttachmentStoreOp::eStore,
@@ -670,7 +571,7 @@ private:
 			.renderArea = 
 			{ 
 				.offset = { 0, 0 }, 
-				.extent = swapChainExtent 
+				.extent = swapChain->getExtent() 
 			},
 			.layerCount = 1,
 			.colorAttachmentCount = 1,
@@ -684,8 +585,8 @@ private:
 		commandBuffer.bindVertexBuffers(0, *vertexBuffer, { 0 });
 		commandBuffer.bindIndexBuffer(*indexBuffer, 0, vk::IndexType::eUint16);
 
-		commandBuffer.setViewport(0, vk::Viewport(0.0f, static_cast<float>(swapChainExtent.height), static_cast<float>(swapChainExtent.width), -static_cast<float>(swapChainExtent.height), 0.0f, 1.0f));
-		commandBuffer.setScissor(0, vk::Rect2D(vk::Offset2D(0, 0), swapChainExtent));
+		commandBuffer.setViewport(0, vk::Viewport(0.0f, static_cast<float>(swapChain->getExtent().height), static_cast<float>(swapChain->getExtent().width), -static_cast<float>(swapChain->getExtent().height), 0.0f, 1.0f));
+		commandBuffer.setScissor(0, vk::Rect2D(vk::Offset2D(0, 0), swapChain->getExtent()));
 
 		commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, pipelineLayout, 0, *descriptorSets[frameIndex], nullptr);
 		commandBuffer.drawIndexed(static_cast<uint32_t>(indices.size()), 1, 0, 0, 0);
@@ -725,7 +626,7 @@ private:
 			.newLayout = new_layout,
 			.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
 			.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-			.image = swapChainImages[imageIndex],
+			.image = swapChain->getImages()[imageIndex],
 			.subresourceRange = 
 				{
 				   .aspectMask = vk::ImageAspectFlagBits::eColor,
@@ -750,7 +651,7 @@ private:
 	{
 		assert(presentCompleteSemaphores.empty() && renderFinishedSemaphores.empty() && inFlightFences.empty());
 
-		for (size_t i = 0; i < swapChainImages.size(); i++)
+		for (size_t i = 0; i < swapChain->getImages().size(); i++)
 		{
 			renderFinishedSemaphores.emplace_back(vulkanContext->getDevice(), vk::SemaphoreCreateInfo());
 		}
