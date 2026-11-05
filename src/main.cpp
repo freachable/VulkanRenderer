@@ -19,9 +19,7 @@
 #include "graphics/Vertex.hpp"
 #include "graphics/Buffer.hpp"
 #include "graphics/FrameData.hpp"
-
-#define GLFW_INCLUDE_NONE        // REQUIRED only for GLFW CreateWindowSurface.
-#include <GLFW/glfw3.h>
+#include "platform/Window.hpp"
 
 constexpr uint32_t WIDTH = 800;
 constexpr uint32_t HEIGHT = 600;
@@ -56,14 +54,13 @@ class HelloTriangleApplication
 public:
 	void run()
 	{
-		initWindow();
 		initVulkan();
 		mainLoop();
-		cleanup();
 	}
 
 private:
-	GLFWwindow* window = nullptr;
+	// First member: created first, destroyed last, so it outlives the surface in vulkanContext.
+	Window window{ { .width = WIDTH, .height = HEIGHT, .title = "Vulkan" } };
 
 	std::optional<VulkanContext> vulkanContext;
 	std::optional<Swapchain> swapChain;
@@ -83,45 +80,10 @@ private:
 	std::vector<FrameData> frames;
 	uint32_t frameIndex = 0;
 
-	bool framebufferResized = false;
-
-	void initWindow()
-	{
-		if (const char* platformName = std::getenv("VR_GLFW_PLATFORM"))
-		{
-			if (std::strcmp(platformName, "x11") == 0)
-			{
-				glfwInitHint(GLFW_PLATFORM, GLFW_PLATFORM_X11);
-			}
-			else if (std::strcmp(platformName, "wayland") == 0)
-			{
-				glfwInitHint(GLFW_PLATFORM, GLFW_PLATFORM_WAYLAND);
-			}
-		}
-
-		if (!glfwInit())
-		{
-			throw std::runtime_error("failed to initialize GLFW!");
-		}
-
-		glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-		glfwWindowHint(GLFW_RESIZABLE, GLFW_TRUE);
-
-		window = glfwCreateWindow(WIDTH, HEIGHT, "Vulkan", nullptr, nullptr);
-		glfwSetWindowUserPointer(window, this);
-		glfwSetFramebufferSizeCallback(window, framebufferResizeCallback);
-	}
-
-	static void framebufferResizeCallback(GLFWwindow* window, int width, int height)
-	{
-		auto app = reinterpret_cast<HelloTriangleApplication*>(glfwGetWindowUserPointer(window));
-		app->framebufferResized = true;
-	}
-
 	void initVulkan()
 	{
 		createVulkanContext();
-		swapChain.emplace(*vulkanContext, getFramebufferExtent());
+		swapChain.emplace(*vulkanContext, window.getFramebufferExtent());
 		createGraphicsPipeline();
 		createCommandPool();
 		createVertexBuffer();
@@ -133,9 +95,9 @@ private:
 
 	void mainLoop()
 	{
-		while (!glfwWindowShouldClose(window))
+		while (!window.shouldClose())
 		{
-			glfwPollEvents();
+			window.pollEvents();
 			drawFrame();
 		}
 
@@ -198,9 +160,10 @@ private:
 		};
 
 		result = vulkanContext->getGraphicsQueue().presentKHR(presentInfoKHR);
-		if (result == vk::Result::eErrorOutOfDateKHR || result == vk::Result::eSuboptimalKHR || framebufferResized)
+		// Always consume the flag, so a recreate for another reason also clears a pending resize.
+		const bool resized = window.consumeResized();
+		if (result == vk::Result::eErrorOutOfDateKHR || result == vk::Result::eSuboptimalKHR || resized)
 		{
-			framebufferResized = false;
 			recreateSwapChain();
 		}
 		else
@@ -264,38 +227,19 @@ private:
 
 	void recreateSwapChain()
 	{
-		int width = 0, height = 0;
-		glfwGetFramebufferSize(window, &width, &height);
-
-		while ((width == 0 || height == 0) && !glfwWindowShouldClose(window)) 
-		{
-			glfwGetFramebufferSize(window, &width, &height);
-			glfwWaitEvents();
-		}
-
-		if (glfwWindowShouldClose(window)) 
+		const vk::Extent2D extent = window.waitForDrawableExtent();
+		if (window.shouldClose())
 		{
 			return;
 		}
 
 		vulkanContext->getDevice().waitIdle();
 
-		swapChain->recreate(getFramebufferExtent());
-	}
-
-	void cleanup()
-	{
-		swapChain.reset();
-
-		glfwDestroyWindow(window);
-		glfwTerminate();
+		swapChain->recreate(extent);
 	}
 
 	void createVulkanContext()
 	{
-		uint32_t glfwExtensionCount = 0;
-		char const** glfwExtensions = glfwGetRequiredInstanceExtensions(&glfwExtensionCount);
-
 		const std::vector<char const*> requiredDeviceExtensions =
 		{
 			vk::KHRSwapchainExtensionName
@@ -304,25 +248,10 @@ private:
 		vulkanContext.emplace(VulkanContextConfig
 		{
 			.enableValidation           = enableValidationLayers,
-			.requiredInstanceExtensions = { glfwExtensions, glfwExtensionCount },
+			.requiredInstanceExtensions = window.getRequiredInstanceExtensions(),
 			.requiredDeviceExtensions   = requiredDeviceExtensions,
-			.createSurface              = [this](VkInstance instance)
-			{
-				VkSurfaceKHR surface = VK_NULL_HANDLE;
-				if (glfwCreateWindowSurface(instance, window, nullptr, &surface) != VK_SUCCESS)
-				{
-					throw std::runtime_error("failed to create window surface!");
-				}
-				return surface;
-			}
+			.createSurface              = [this](VkInstance instance) { return window.createSurface(instance); }
 		});
-	}
-
-	vk::Extent2D getFramebufferExtent() const
-	{
-		int width = 0, height = 0;
-		glfwGetFramebufferSize(window, &width, &height);
-		return { static_cast<uint32_t>(width), static_cast<uint32_t>(height) };
 	}
 
 	void createGraphicsPipeline() 
