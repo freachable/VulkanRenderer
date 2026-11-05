@@ -15,6 +15,8 @@
 #include "graphics/VulkanContext.hpp"
 #include "graphics/Swapchain.hpp"
 #include "graphics/Shader.hpp"
+#include "graphics/GraphicsPipeline.hpp"
+#include "graphics/Vertex.hpp"
 
 #define GLFW_INCLUDE_NONE        // REQUIRED only for GLFW CreateWindowSurface.
 #include <GLFW/glfw3.h>
@@ -28,33 +30,6 @@ constexpr bool enableValidationLayers = false;
 #else
 constexpr bool enableValidationLayers = true;
 #endif
-
-struct Vertex
-{
-	glm::vec2 pos;
-	glm::vec3 color;
-
-	static vk::VertexInputBindingDescription getBindingDescription()
-	{
-		return 
-		{ 
-			.binding = 0, 
-			.stride = sizeof(Vertex), 
-			.inputRate = vk::VertexInputRate::eVertex 
-		};
-	}
-
-	static std::array<vk::VertexInputAttributeDescription, 2> getAttributeDescriptions()
-	{
-		return 
-		{ 
-			{ 
-				{ .location = 0, .binding = 0, .format = vk::Format::eR32G32Sfloat, .offset = offsetof(Vertex, pos) },
-				{ .location = 1, .binding = 0, .format = vk::Format::eR32G32B32Sfloat, .offset = offsetof(Vertex, color) } 
-			} 
-		};
-	}
-};
 
 const std::vector<Vertex> vertices = {
 	{ { -0.5f, -0.5f },{ 1.0f, 0.0f, 0.0f } },
@@ -90,10 +65,8 @@ private:
 
 	std::optional<VulkanContext> vulkanContext;
 	std::optional<Swapchain> swapChain;
+	std::optional<GraphicsPipeline> graphicsPipeline;
 
-	vk::raii::DescriptorSetLayout descriptorSetLayout = nullptr;
-	vk::raii::PipelineLayout      pipelineLayout = nullptr;
-	vk::raii::Pipeline       graphicsPipeline = nullptr;
 	vk::raii::CommandPool    commandPool = nullptr;
 	std::vector<vk::raii::CommandBuffer> commandBuffers;
 
@@ -153,7 +126,6 @@ private:
 	{
 		createVulkanContext();
 		swapChain.emplace(*vulkanContext, getFramebufferExtent());
-		createDescriptorSetLayout();
 		createGraphicsPipeline();
 		createCommandPool();
 		createVertexBuffer();
@@ -265,7 +237,7 @@ private:
 
 	void createDescriptorSets()
 	{
-		std::vector<vk::DescriptorSetLayout> layouts(MAX_FRAMES_IN_FLIGHT, *descriptorSetLayout);
+		std::vector<vk::DescriptorSetLayout> layouts(MAX_FRAMES_IN_FLIGHT, *graphicsPipeline->getDescriptorSetLayout());
 
 		vk::DescriptorSetAllocateInfo allocInfo
 		{ 
@@ -387,104 +359,7 @@ private:
 			{ vk::ShaderStageFlagBits::eFragment, "fragMain" }
 		});
 
-		auto bindingDescription = Vertex::getBindingDescription();
-		auto attributeDescriptions = Vertex::getAttributeDescriptions();
-
-		vk::PipelineVertexInputStateCreateInfo vertexInputInfo
-		{ 
-			.vertexBindingDescriptionCount = 1,
-			.pVertexBindingDescriptions = &bindingDescription,
-			.vertexAttributeDescriptionCount = static_cast<uint32_t>(attributeDescriptions.size()),
-			.pVertexAttributeDescriptions = attributeDescriptions.data()
-		};
-
-		vk::PipelineInputAssemblyStateCreateInfo inputAssembly
-		{ 
-			.topology = vk::PrimitiveTopology::eTriangleList 
-		};
-
-		vk::PipelineViewportStateCreateInfo viewportState
-		{ 
-			.viewportCount = 1, 
-			.scissorCount = 1 
-		};
-
-		vk::PipelineRasterizationStateCreateInfo rasterizer
-		{ 
-			.depthClampEnable = vk::False,
-			.rasterizerDiscardEnable = vk::False,
-			.polygonMode = vk::PolygonMode::eFill,
-			.cullMode = vk::CullModeFlagBits::eBack,
-			.frontFace = vk::FrontFace::eCounterClockwise,
-			.depthBiasEnable = vk::False,
-			.lineWidth = 1.0f
-		};
-
-		vk::PipelineMultisampleStateCreateInfo multisampling
-		{ 
-			.rasterizationSamples = vk::SampleCountFlagBits::e1, 
-			.sampleShadingEnable = vk::False 
-		};
-
-		vk::PipelineColorBlendAttachmentState colorBlendAttachment
-		{
-			.blendEnable = vk::False,
-			.colorWriteMask = vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eG | vk::ColorComponentFlagBits::eB | vk::ColorComponentFlagBits::eA 
-		};
-
-		vk::PipelineColorBlendStateCreateInfo colorBlending
-		{
-			.logicOpEnable = vk::False, 
-			.logicOp = vk::LogicOp::eCopy, 
-			.attachmentCount = 1, 
-			.pAttachments = &colorBlendAttachment
-		};
-
-		std::vector<vk::DynamicState> dynamicStates = { vk::DynamicState::eViewport, vk::DynamicState::eScissor };
-
-		vk::PipelineDynamicStateCreateInfo dynamicState
-		{ 
-			.dynamicStateCount = static_cast<uint32_t>(dynamicStates.size()), 
-			.pDynamicStates = dynamicStates.data() 
-		};
-
-		vk::PipelineLayoutCreateInfo pipelineLayoutInfo
-		{ 
-			.setLayoutCount = 1, 
-			.pSetLayouts = &*descriptorSetLayout, 
-			.pushConstantRangeCount = 0
-		};
-
-		pipelineLayout = vk::raii::PipelineLayout(vulkanContext->getDevice(), pipelineLayoutInfo);
-
-		vk::PipelineRenderingCreateInfo pipelineRenderingCreateInfo
-		{ 
-			.colorAttachmentCount = 1, 
-			.pColorAttachmentFormats = &swapChain->getSurfaceFormat().format
-		};
-
-		vk::StructureChain<vk::GraphicsPipelineCreateInfo, vk::PipelineRenderingCreateInfo> pipelineCreateInfoChain = 
-		{
-			{ 
-				.stageCount = static_cast<uint32_t>(shader.getStages().size()),
-				.pStages = shader.getStages().data(),
-				.pVertexInputState = &vertexInputInfo,
-				.pInputAssemblyState = &inputAssembly,
-				.pViewportState = &viewportState,
-				.pRasterizationState = &rasterizer,
-				.pMultisampleState = &multisampling,
-				.pColorBlendState = &colorBlending,
-				.pDynamicState = &dynamicState,
-				.layout = pipelineLayout,
-				.renderPass = nullptr
-			},
-			{ 
-				.colorAttachmentCount = 1, 
-				.pColorAttachmentFormats = &swapChain->getSurfaceFormat().format
-			} 
-		};
-
-		graphicsPipeline = vk::raii::Pipeline(vulkanContext->getDevice(), nullptr, pipelineCreateInfoChain.get<vk::GraphicsPipelineCreateInfo>());
+		graphicsPipeline.emplace(*vulkanContext, shader, swapChain->getSurfaceFormat().format);
 	}
 
 	void createCommandPool()
@@ -568,7 +443,7 @@ private:
 
 		commandBuffer.beginRendering(renderingInfo);
 
-		commandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics, *graphicsPipeline);
+		commandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics, *graphicsPipeline->getHandle());
 
 		commandBuffer.bindVertexBuffers(0, *vertexBuffer, { 0 });
 		commandBuffer.bindIndexBuffer(*indexBuffer, 0, vk::IndexType::eUint16);
@@ -576,7 +451,7 @@ private:
 		commandBuffer.setViewport(0, vk::Viewport(0.0f, static_cast<float>(swapChain->getExtent().height), static_cast<float>(swapChain->getExtent().width), -static_cast<float>(swapChain->getExtent().height), 0.0f, 1.0f));
 		commandBuffer.setScissor(0, vk::Rect2D(vk::Offset2D(0, 0), swapChain->getExtent()));
 
-		commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, pipelineLayout, 0, *descriptorSets[frameIndex], nullptr);
+		commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, graphicsPipeline->getLayout(), 0, *descriptorSets[frameIndex], nullptr);
 		commandBuffer.drawIndexed(static_cast<uint32_t>(indices.size()), 1, 0, 0, 0);
 
 		commandBuffer.endRendering();
@@ -710,25 +585,6 @@ private:
 
 		vulkanContext->getGraphicsQueue().submit(vk::SubmitInfo{ .commandBufferCount = 1, .pCommandBuffers = &*commandCopyBuffer }, nullptr);
 		vulkanContext->getGraphicsQueue().waitIdle();
-	}
-
-	void createDescriptorSetLayout()
-	{
-		vk::DescriptorSetLayoutBinding uboLayoutBinding
-		{
-			.binding = 0, 
-			.descriptorType = vk::DescriptorType::eUniformBuffer, 
-			.descriptorCount = 1, 
-			.stageFlags = vk::ShaderStageFlagBits::eVertex
-		};
-
-		vk::DescriptorSetLayoutCreateInfo layoutInfo
-		{ 
-			.bindingCount = 1, 
-			.pBindings = &uboLayoutBinding
-		};
-
-		descriptorSetLayout = vk::raii::DescriptorSetLayout(vulkanContext->getDevice(), layoutInfo);
 	}
 
 	uint32_t findMemoryType(uint32_t typeFilter, vk::MemoryPropertyFlags properties) 

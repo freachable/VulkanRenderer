@@ -15,9 +15,6 @@ struct ShaderEntryPoint
 	std::string             name;   // e.g. "vertMain"
 };
 
-// One compiled SPIR-V module plus the entry points used from it. A Slang file
-// can hold several entry points (vertex + fragment, or compute), so the stages
-// are a list rather than one class per stage type.
 class Shader
 {
 public:
