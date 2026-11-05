@@ -2,7 +2,6 @@
 #include <cstdlib>
 #include <cstring>
 #include <iostream>
-#include <fstream>
 #include <memory>
 #include <stdexcept>
 #include <vector>
@@ -15,6 +14,7 @@
 #include "graphics/Vulkan.hpp"
 #include "graphics/VulkanContext.hpp"
 #include "graphics/Swapchain.hpp"
+#include "graphics/Shader.hpp"
 
 #define GLFW_INCLUDE_NONE        // REQUIRED only for GLFW CreateWindowSurface.
 #include <GLFW/glfw3.h>
@@ -381,23 +381,11 @@ private:
 
 	void createGraphicsPipeline() 
 	{
-		vk::raii::ShaderModule shaderModule = createShaderModule(readFile(VR_SHADER_PATH));
-
-		vk::PipelineShaderStageCreateInfo vertShaderStageInfo
-		{ 
-			.stage = vk::ShaderStageFlagBits::eVertex, 
-			.module = shaderModule,  
-			.pName = "vertMain"
-		};
-
-		vk::PipelineShaderStageCreateInfo fragShaderStageInfo
-		{ 
-			.stage = vk::ShaderStageFlagBits::eFragment, 
-			.module = shaderModule, 
-			.pName = "fragMain"
-		};
-
-		vk::PipelineShaderStageCreateInfo shaderStages[] = { vertShaderStageInfo, fragShaderStageInfo };
+		Shader shader(*vulkanContext, VR_SHADER_PATH,
+		{
+			{ vk::ShaderStageFlagBits::eVertex,   "vertMain" },
+			{ vk::ShaderStageFlagBits::eFragment, "fragMain" }
+		});
 
 		auto bindingDescription = Vertex::getBindingDescription();
 		auto attributeDescriptions = Vertex::getAttributeDescriptions();
@@ -478,8 +466,8 @@ private:
 		vk::StructureChain<vk::GraphicsPipelineCreateInfo, vk::PipelineRenderingCreateInfo> pipelineCreateInfoChain = 
 		{
 			{ 
-				.stageCount = 2,
-				.pStages = shaderStages,
+				.stageCount = static_cast<uint32_t>(shader.getStages().size()),
+				.pStages = shader.getStages().data(),
 				.pVertexInputState = &vertexInputInfo,
 				.pInputAssemblyState = &inputAssembly,
 				.pViewportState = &viewportState,
@@ -756,42 +744,6 @@ private:
 		}
 
 		throw std::runtime_error("failed to find suitable memory type!");
-	}
-
-	[[nodiscard]] 
-	vk::raii::ShaderModule createShaderModule(const std::vector<char>& code) const
-	{
-		vk::ShaderModuleCreateInfo createInfo
-		{ 
-			.codeSize = code.size() * sizeof(char), 
-			.pCode = reinterpret_cast<const uint32_t*>(code.data()) 
-		};
-
-		vk::raii::ShaderModule shaderModule
-		{ 
-			vulkanContext->getDevice(), 
-			createInfo 
-		};
-
-		return shaderModule;
-	}
-
-	static std::vector<char> readFile(const std::string& filename)
-	{
-		std::ifstream file(filename, std::ios::ate | std::ios::binary);
-
-		if (!file.is_open()) {
-			throw std::runtime_error("failed to open file: " + filename);
-		}
-
-		std::vector<char> buffer(file.tellg());
-
-		file.seekg(0, std::ios::beg);
-		file.read(buffer.data(), static_cast<std::streamsize>(buffer.size()));
-
-		file.close();
-
-		return buffer;
 	}
 
 	std::pair<vk::raii::Buffer, vk::raii::DeviceMemory> createBuffer(vk::DeviceSize size, vk::BufferUsageFlags usage, vk::MemoryPropertyFlags properties)
