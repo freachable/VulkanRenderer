@@ -3,6 +3,7 @@
 #include "Shader.hpp"
 #include "Vertex.hpp"
 
+#include <array>
 #include <cstdint>
 #include <cstring>
 
@@ -12,10 +13,10 @@
 namespace
 {
 	const std::vector<Vertex> vertices = {
-		{ { -0.5f, -0.5f },{ 1.0f, 0.0f, 0.0f } },
-		{ { 0.5f, -0.5f },{ 0.0f, 1.0f, 0.0f } },
-		{ { 0.5f, 0.5f },{ 0.0f, 0.0f, 1.0f } },
-		{ { -0.5f, 0.5f },{ 1.0f, 1.0f, 1.0f } }
+		{ { -0.5f, -0.5f },{ 1.0f, 0.0f, 0.0f },{ 1.0f, 0.0f } },
+		{ { 0.5f, -0.5f },{ 0.0f, 1.0f, 0.0f },{ 0.0f, 0.0f } },
+		{ { 0.5f, 0.5f },{ 0.0f, 0.0f, 1.0f },{ 0.0f, 1.0f } },
+		{ { -0.5f, 0.5f },{ 1.0f, 1.0f, 1.0f },{ 1.0f, 1.0f } }
 	};
 
 	const std::vector<uint16_t> indices = {
@@ -54,20 +55,50 @@ namespace
 		return vk::raii::CommandPool(context.getDevice(), poolInfo);
 	}
 
+	vk::raii::Sampler createTextureSampler(VulkanContext const& context)
+	{
+		vk::PhysicalDeviceProperties properties = context.getPhysicalDevice().getProperties();
+
+		vk::SamplerCreateInfo samplerInfo
+		{
+			.magFilter        = vk::Filter::eLinear,
+			.minFilter        = vk::Filter::eLinear,
+			.mipmapMode       = vk::SamplerMipmapMode::eLinear,
+			.addressModeU     = vk::SamplerAddressMode::eRepeat,
+			.addressModeV     = vk::SamplerAddressMode::eRepeat,
+			.addressModeW     = vk::SamplerAddressMode::eRepeat,
+			.mipLodBias       = 0.0f,
+			.anisotropyEnable = vk::True,
+			.maxAnisotropy    = properties.limits.maxSamplerAnisotropy,
+			.compareEnable    = vk::False,
+			.compareOp        = vk::CompareOp::eAlways
+		};
+
+		return vk::raii::Sampler(context.getDevice(), samplerInfo);
+	}
+
 	vk::raii::DescriptorPool createDescriptorPool(VulkanContext const& context, uint32_t framesInFlight)
 	{
-		vk::DescriptorPoolSize poolSize
-		{
-			.type = vk::DescriptorType::eUniformBuffer,
-			.descriptorCount = framesInFlight
+		std::array<vk::DescriptorPoolSize, 2> poolSize
+		{ 
+			{ 
+				{ 
+					.type = vk::DescriptorType::eUniformBuffer, 
+					.descriptorCount = framesInFlight 
+				},
+				{ 
+					.type = vk::DescriptorType::eCombinedImageSampler, 
+					.descriptorCount = framesInFlight 
+				} 
+			} 
 		};
 
 		vk::DescriptorPoolCreateInfo poolInfo
-		{
+		{ 
 			.flags = vk::DescriptorPoolCreateFlagBits::eFreeDescriptorSet,
 			.maxSets = framesInFlight,
-			.poolSizeCount = 1,
-			.pPoolSizes = &poolSize
+			.poolSizeCount = static_cast<uint32_t>(poolSize.size()),
+			.pPoolSizes = poolSize.data() 
 		};
 
 		return vk::raii::DescriptorPool(context.getDevice(), poolInfo);
@@ -76,7 +107,9 @@ namespace
 	std::vector<FrameData> createFrames(VulkanContext const& context,
 	                                    vk::raii::DescriptorPool const& descriptorPool,
 	                                    GraphicsPipeline const& graphicsPipeline,
-	                                    uint32_t framesInFlight)
+	                                    uint32_t framesInFlight,
+	                                    Texture const& texture,
+	                                    vk::raii::Sampler const& textureSampler)
 	{
 		std::vector<FrameData> frames;
 		frames.reserve(framesInFlight);
@@ -87,7 +120,9 @@ namespace
 				context,
 				descriptorPool,
 				graphicsPipeline.getDescriptorSetLayout(),
-				sizeof(UniformBufferObject)
+				sizeof(UniformBufferObject),
+				texture.getImageView(),
+				textureSampler
 			);
 		}
 
@@ -100,8 +135,10 @@ Renderer::Renderer(VulkanContext const& context, RenderContext const& renderCont
 	, uploadCommandPool(createUploadCommandPool(context))
 	, vertexBuffer(Buffer::forVertices(context, uploadCommandPool, vertices))
 	, indexBuffer(Buffer::forIndices(context, uploadCommandPool, indices))
+	, texture(context, uploadCommandPool, VR_TEXTURE_PATH)
+	, textureSampler(createTextureSampler(context))
 	, descriptorPool(createDescriptorPool(context, renderContext.getFramesInFlight()))
-	, frames(createFrames(context, descriptorPool, graphicsPipeline, renderContext.getFramesInFlight()))
+	, frames(createFrames(context, descriptorPool, graphicsPipeline, renderContext.getFramesInFlight(), texture, textureSampler))
 	, startTime(std::chrono::steady_clock::now())
 {
 }

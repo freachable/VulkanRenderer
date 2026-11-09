@@ -1,5 +1,6 @@
 #include "FrameData.hpp"
 
+#include <array>
 #include <utility>
 
 namespace
@@ -8,7 +9,9 @@ namespace
 	                                              vk::raii::DescriptorPool const& descriptorPool,
 	                                              vk::raii::DescriptorSetLayout const& descriptorSetLayout,
 	                                              Buffer const& uniformBuffer,
-	                                              vk::DeviceSize uniformBufferSize)
+	                                              vk::DeviceSize uniformBufferSize,
+	                                              vk::raii::ImageView const& textureImageView,
+	                                              vk::raii::Sampler const& textureSampler)
 	{
 		vk::DescriptorSetAllocateInfo allocInfo
 		{
@@ -26,17 +29,35 @@ namespace
 			.range = uniformBufferSize
 		};
 
-		vk::WriteDescriptorSet descriptorWrite
-		{
-			.dstSet = descriptorSet,
-			.dstBinding = 0,
-			.dstArrayElement = 0,
-			.descriptorCount = 1,
-			.descriptorType = vk::DescriptorType::eUniformBuffer,
-			.pBufferInfo = &bufferInfo
+		vk::DescriptorImageInfo imageInfo
+		{ 
+			.sampler = textureSampler, 
+			.imageView = textureImageView, 
+			.imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal
 		};
 
-		context.getDevice().updateDescriptorSets(descriptorWrite, {});
+		std::array<vk::WriteDescriptorSet, 2> descriptorWrites{ 
+			{ 
+				{ 
+					.dstSet = descriptorSet,
+					.dstBinding = 0,
+					.dstArrayElement = 0,
+					.descriptorCount = 1,
+					.descriptorType = vk::DescriptorType::eUniformBuffer,
+					.pBufferInfo = &bufferInfo 
+				},
+				{ 
+					.dstSet = descriptorSet,
+					.dstBinding = 1,
+					.dstArrayElement = 0,
+					.descriptorCount = 1,
+					.descriptorType = vk::DescriptorType::eCombinedImageSampler,
+					.pImageInfo = &imageInfo 
+				} 
+			}
+		};
+
+		context.getDevice().updateDescriptorSets(descriptorWrites, {});
 		return descriptorSet;
 	}
 }
@@ -44,8 +65,11 @@ namespace
 FrameData::FrameData(VulkanContext const& context,
                      vk::raii::DescriptorPool const& descriptorPool,
                      vk::raii::DescriptorSetLayout const& descriptorSetLayout,
-                     vk::DeviceSize uniformBufferSize)
+                     vk::DeviceSize uniformBufferSize,
+                     vk::raii::ImageView const& textureImageView,
+                     vk::raii::Sampler const& textureSampler)
 	: uniformBuffer(Buffer::forUniform(context, uniformBufferSize))
-	, descriptorSet(allocateDescriptorSet(context, descriptorPool, descriptorSetLayout, uniformBuffer, uniformBufferSize))
+	, descriptorSet(allocateDescriptorSet(context, descriptorPool, descriptorSetLayout, uniformBuffer, uniformBufferSize,
+	                                      textureImageView, textureSampler))
 {
 }

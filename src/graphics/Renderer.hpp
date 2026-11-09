@@ -6,6 +6,7 @@
 #include "GraphicsPipeline.hpp"
 #include "Buffer.hpp"
 #include "FrameData.hpp"
+#include "Texture.hpp"
 
 #include <chrono>
 #include <vector>
@@ -38,6 +39,11 @@ private:
 
 	Buffer vertexBuffer;
 	Buffer indexBuffer;
+
+	Texture texture;
+
+	// Shared by all textures; it only says how they are sampled.
+	vk::raii::Sampler textureSampler;
 
 	vk::raii::DescriptorPool descriptorPool;
 

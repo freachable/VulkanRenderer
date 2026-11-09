@@ -98,6 +98,8 @@ add_executable(${PROJECT_NAME}
   src/graphics/Shader.cpp
   src/graphics/GraphicsPipeline.cpp
   src/graphics/Buffer.cpp
+  src/graphics/Texture.cpp
+  src/graphics/Command.cpp
   src/graphics/FrameData.cpp
   src/graphics/RenderContext.cpp
   src/graphics/Renderer.cpp
@@ -124,6 +126,7 @@ target_compile_definitions(${PROJECT_NAME} PRIVATE
   VULKAN_HPP_HANDLE_ERROR_OUT_OF_DATE_AS_SUCCESS
   "VR_VALIDATION_LAYER_DIR=\"${VALIDATION_LAYER_DIR}\""
   "VR_SHADER_PATH=\"${SHADER_SPV}\""
+  "VR_TEXTURE_PATH=\"${CMAKE_CURRENT_SOURCE_DIR}/textures/texture.jpg\""
   $<$<BOOL:${ENABLE_CPP20_MODULE}>:USE_CPP20_MODULES=1>
   # MSVC flags std::getenv as deprecated
   $<$<CXX_COMPILER_ID:MSVC>:_CRT_SECURE_NO_WARNINGS>

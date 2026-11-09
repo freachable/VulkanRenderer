@@ -18,6 +18,11 @@ public:
 	// Host-visible and coherent, mapped for its whole lifetime (see getMapped()).
 	static Buffer forUniform(VulkanContext const& context, vk::DeviceSize size);
 
+	// Host-visible transfer source holding a copy of data.
+	static Buffer forStaging(VulkanContext const& context, void const* data, vk::DeviceSize size);
+
+	static uint32_t findMemoryType(VulkanContext const& context, uint32_t typeFilter, vk::MemoryPropertyFlags properties);
+
 	Buffer(Buffer&& other) noexcept;
 	Buffer& operator=(Buffer&& other) noexcept;
 	Buffer(Buffer const&) = delete;
@@ -36,8 +41,6 @@ private:
 
 	static void copyBuffer(VulkanContext const& context, vk::raii::CommandPool const& commandPool,
 	                       Buffer const& srcBuffer, Buffer const& dstBuffer, vk::DeviceSize size);
-
-	static uint32_t findMemoryType(VulkanContext const& context, uint32_t typeFilter, vk::MemoryPropertyFlags properties);
 
 	vk::raii::DeviceMemory memory = nullptr;
 	vk::raii::Buffer       buffer = nullptr;

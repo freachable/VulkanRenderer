@@ -3,6 +3,7 @@
 #include <cstring>
 #include <stdexcept>
 #include <utility>
+#include "Command.hpp"
 
 Buffer Buffer::forVertices(VulkanContext const& context, vk::raii::CommandPool const& commandPool, std::span<Vertex const> vertices)
 {
@@ -25,6 +26,22 @@ Buffer Buffer::forUniform(VulkanContext const& context, vk::DeviceSize size)
 
 	uniformBuffer.mapped = uniformBuffer.memory.mapMemory(0, size);
 	return uniformBuffer;
+}
+
+Buffer Buffer::forStaging(VulkanContext const& context, void const* data, vk::DeviceSize size)
+{
+	Buffer stagingBuffer(
+		context,
+		size,
+		vk::BufferUsageFlagBits::eTransferSrc,
+		vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent
+	);
+
+	void* dataStaging = stagingBuffer.memory.mapMemory(0, size);
+	std::memcpy(dataStaging, data, static_cast<size_t>(size));
+	stagingBuffer.memory.unmapMemory();
+
+	return stagingBuffer;
 }
 
 Buffer::Buffer(Buffer&& other) noexcept
@@ -91,21 +108,11 @@ Buffer Buffer::createDeviceLocal(VulkanContext const& context, vk::raii::Command
 void Buffer::copyBuffer(VulkanContext const& context, vk::raii::CommandPool const& commandPool,
                         Buffer const& srcBuffer, Buffer const& dstBuffer, vk::DeviceSize size)
 {
-	vk::CommandBufferAllocateInfo allocInfo
-	{
-		.commandPool = commandPool,
-		.level = vk::CommandBufferLevel::ePrimary,
-		.commandBufferCount = 1
-	};
+	Command command(context, commandPool);
+	vk::raii::CommandBuffer commandBuffer = command.beginSingleTimeCommands();
 
-	vk::raii::CommandBuffer commandCopyBuffer = std::move(context.getDevice().allocateCommandBuffers(allocInfo).front());
-
-	commandCopyBuffer.begin({ .flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit });
-	commandCopyBuffer.copyBuffer(*srcBuffer.buffer, *dstBuffer.buffer, vk::BufferCopy(0, 0, size));
-	commandCopyBuffer.end();
-
-	context.getGraphicsQueue().submit(vk::SubmitInfo{ .commandBufferCount = 1, .pCommandBuffers = &*commandCopyBuffer }, nullptr);
-	context.getGraphicsQueue().waitIdle();
+	commandBuffer.copyBuffer(*srcBuffer.buffer, *dstBuffer.buffer, vk::BufferCopy(0, 0, size));
+	command.endSingleTimeCommands(std::move(commandBuffer));
 }
 
 uint32_t Buffer::findMemoryType(VulkanContext const& context, uint32_t typeFilter, vk::MemoryPropertyFlags properties)
