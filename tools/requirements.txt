@@ -1,0 +1,8 @@
+# Only needed for osm_export.py; generate_sample_map.py uses the standard library.
+osmnx>=2.0
+geopandas
+shapely
+numpy
+pillow
+# Optional, for --dem
+rasterio

@@ -13,6 +13,7 @@ set(CMAKE_CXX_SCAN_FOR_MODULES ${ENABLE_CPP20_MODULE})
 # ---------------------------------------------------------------------------
 find_package(glfw3 CONFIG REQUIRED)
 find_package(glm CONFIG REQUIRED)
+find_package(nlohmann_json CONFIG REQUIRED)
 find_package(tinyobjloader CONFIG REQUIRED)
 find_package(Stb REQUIRED)
 find_package(Vulkan 1.4 REQUIRED)
@@ -103,6 +104,9 @@ add_executable(${PROJECT_NAME}
   src/graphics/FrameData.cpp
   src/graphics/RenderContext.cpp
   src/graphics/Renderer.cpp
+  src/map/MapData.cpp
+  src/map/TerrainMesh.cpp
+  src/map/BuildingMesh.cpp
   src/platform/Window.cpp
 )
 target_include_directories(${PROJECT_NAME} PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/src")
@@ -117,6 +121,7 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
   Vulkan::cppm
   glfw
   glm::glm
+  nlohmann_json::nlohmann_json
   tinyobjloader::tinyobjloader
 )
 target_include_directories(${PROJECT_NAME} PRIVATE ${Stb_INCLUDE_DIR})

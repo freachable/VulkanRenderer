@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "name": "sample",
+  "size": [
+    1024.0,
+    1024.0
+  ],
+  "heightRange": [
+    4.0,
+    75.0
+  ],
+  "heightmap": "heightmap.png",
+  "albedo": "albedo.png",
+  "buildings": "buildings.json",
+  "foliage": "foliage.json"
+}

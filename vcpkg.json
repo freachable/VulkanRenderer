@@ -8,6 +8,7 @@
       "features": [ { "name": "wayland", "platform": "linux" } ]
     },
     "glm",
+    "nlohmann-json",
     {
       "name": "shader-slang",
       "host": true
