@@ -1,6 +1,6 @@
 # Proposed Project Structure
 
-> Proposal by P1, for discussion. Nothing outside P1's folders is moved until the team agrees.
+> Proposal by P1, for discussion. P1's folders (`assets/maps/`, `shaders/mesh/`, `src/map/`, `tools/`) already follow it; nothing else moves until the team agrees.
 
 ## Directory tree
 

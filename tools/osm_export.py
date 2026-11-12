@@ -1,8 +1,8 @@
 """Exports a map area from OpenStreetMap into the renderer's data format.
 
     pip install -r tools/requirements.txt
-    python tools/osm_export.py --bbox 19.030 47.490 19.070 47.515 --out data/budapest
-    python tools/osm_export.py --bbox ... --dem dem.tif --out data/budapest
+    python tools/osm_export.py --bbox 19.030 47.490 19.070 47.515 --out assets/maps/budapest
+    python tools/osm_export.py --bbox ... --dem dem.tif --out assets/maps/budapest
 
 --bbox is west south east north in degrees (WGS84).
 

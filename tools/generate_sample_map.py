@@ -4,8 +4,8 @@ No real data and no extra packages needed: hilly terrain, a street grid,
 parks and random buildings (rectangles and L-shapes). Useful for working on
 the renderer before the OpenStreetMap pipeline (osm_export.py) is ready.
 
-    python tools/generate_sample_map.py            # writes data/sample
-    python tools/generate_sample_map.py --seed 7 --out data/sample2
+    python tools/generate_sample_map.py            # writes assets/maps/sample
+    python tools/generate_sample_map.py --seed 7 --out assets/maps/sample2
 """
 
 from __future__ import annotations
@@ -77,7 +77,7 @@ def make_lot_building(rng: random.Random, x0: float, z0: float, size: float):
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("--out", type=Path, default=Path(__file__).resolve().parent.parent / "data" / "sample")
+    parser.add_argument("--out", type=Path, default=Path(__file__).resolve().parent.parent / "assets" / "maps" / "sample")
     parser.add_argument("--seed", type=int, default=42)
     args = parser.parse_args()
 
