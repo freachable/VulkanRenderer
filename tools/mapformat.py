@@ -1,5 +1,7 @@
 """Writer for the preprocessed map data format read by the renderer.
 
+p1_001 (GitHub #5): this module and docs/map-data-format.md define the format.
+
 The format is described in docs/map-data-format.md. Only the standard library
 is used here, so the synthetic sample generator runs without extra packages.
 
@@ -16,6 +18,8 @@ import zlib
 from pathlib import Path
 from typing import Iterable, Sequence
 
+# p1_001: bump on incompatible format changes, together with supportedFormatVersion
+# in src/map/MapData.cpp.
 FORMAT_VERSION = 1
 
 Point = tuple[float, float]
@@ -39,6 +43,7 @@ def _write_png(path: Path, width: int, height: int, bit_depth: int, color_type: 
         f.write(_png_chunk(b"IEND", b""))
 
 
+# p1_001: heightmap.png, 16-bit gray mapped linearly onto heightRange.
 def write_heightmap_png(path: Path, heights: Sequence[Sequence[float]], height_min: float, height_max: float) -> None:
     """Writes heights (meters, rows north to south) as a 16-bit grayscale PNG."""
     span = max(height_max - height_min, 1e-6)
@@ -50,6 +55,7 @@ def write_heightmap_png(path: Path, heights: Sequence[Sequence[float]], height_m
     _write_png(path, width, len(heights), 16, 0, rows)
 
 
+# p1_001: albedo.png, 8-bit sRGB.
 def write_rgb_png(path: Path, width: int, height: int, pixels: bytearray) -> None:
     """pixels: width*height*3 bytes, row-major, row 0 = north."""
     stride = width * 3
@@ -125,6 +131,7 @@ def triangulate(polygon: Sequence[Point]) -> list[int]:
 # Map output
 # ---------------------------------------------------------------------------
 
+# p1_001: one entry of buildings.json.
 def make_building(footprint: Sequence[Point], height: float, color: Sequence[float]) -> dict | None:
     """color: sRGB in [0, 1]. Returns None for unusable footprints."""
     footprint = clean_polygon(footprint)
@@ -139,6 +146,7 @@ def make_building(footprint: Sequence[Point], height: float, color: Sequence[flo
     }
 
 
+# p1_001: one entry of foliage.json.
 def make_foliage_area(polygon: Sequence[Point], kind: str) -> dict | None:
     polygon = clean_polygon(polygon)
     if len(polygon) < 3:
@@ -146,6 +154,7 @@ def make_foliage_area(polygon: Sequence[Point], kind: str) -> dict | None:
     return {"type": kind, "polygon": [[round(x, 3), round(z, 3)] for x, z in polygon]}
 
 
+# p1_001: map.json manifest plus the JSON files it points to.
 def write_map(directory: Path, name: str, size: Point, height_range: Point,
               buildings: list[dict], foliage_areas: list[dict]) -> None:
     """Writes map.json, buildings.json and foliage.json.

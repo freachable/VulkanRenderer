@@ -12,6 +12,7 @@ namespace
 {
 	using json = nlohmann::json;
 
+	// p1_001 (GitHub #5): must match FORMAT_VERSION in tools/mapformat.py.
 	constexpr int supportedFormatVersion = 1;
 
 	json readJson(std::filesystem::path const& path)

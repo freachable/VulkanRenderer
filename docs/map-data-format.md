@@ -1,6 +1,6 @@
 # Map data format (version 1)
 
-> Draft by P1, to be agreed with the team (P3 places foliage from `foliage.json`, P4's camera uses the world scale).
+> p1_001 (GitHub issue #5). Draft by P1, to be agreed with the team (P3 places foliage from `foliage.json`, P4's camera uses the world scale).
 
 A map is a directory with five files, read by `loadMapData` in `src/map/MapData.hpp`.
 
@@ -43,6 +43,8 @@ Produce one with:
 
 | Field | Meaning |
 |---|---|
+| `version` | Format version, currently 1. Readers reject other versions; bump it on incompatible changes |
+| `name` | Optional, defaults to the folder name |
 | `size` | Map extent in meters along x and z |
 | `heightRange` | Heights in meters for heightmap value 0 and 65535 |
 | `buildings`, `foliage` | Optional |

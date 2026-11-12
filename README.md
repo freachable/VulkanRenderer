@@ -33,4 +33,4 @@ python tools/osm_export.py --bbox W S E N --out assets/maps/<name> [--dem dem.ti
 ```
 
 P1 code is tagged with comments such as `p1_001`: the number is the P1 task number from the
-GitHub issue title, and each file header names the matching GitHub issue.
+GitHub issue title. The first tag in a file also names the GitHub issue, e.g. `p1_001 (GitHub #5)`.

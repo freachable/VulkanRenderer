@@ -10,7 +10,8 @@
 // The preprocessed map, as written by tools/generate_sample_map.py or tools/osm_export.py.
 // See docs/map-data-format.md.
 //
-// World space: x points east, y up, z south, in meters. The map is centered on the origin and spans
+// p1_001 (GitHub #5): world space as defined by the map data format.
+// x points east, y up, z south, in meters. The map is centered on the origin and spans
 // [-size.x / 2, size.x / 2] along x and [-size.y / 2, size.y / 2] along z. 2D points are (x, z).
 
 struct HeightField
@@ -49,6 +50,7 @@ struct MapData
 // Loads <directory>/map.json and the files it points to. Throws std::runtime_error on bad input.
 MapData loadMapData(std::filesystem::path const& directory);
 
+// p1_001: texture coordinates as defined in docs/map-data-format.md.
 // Maps a world (x, z) position to [0, 1]^2 texture coordinates of the heightmap and albedo.
 glm::vec2 mapWorldToUv(MapData const& map, glm::vec2 xz);
 
