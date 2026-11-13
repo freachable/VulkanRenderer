@@ -10,7 +10,7 @@ Buffer Buffer::forVertices(VulkanContext const& context, vk::raii::CommandPool c
 	return createDeviceLocal(context, commandPool, vertices.data(), vertices.size_bytes(), vk::BufferUsageFlagBits::eVertexBuffer);
 }
 
-Buffer Buffer::forIndices(VulkanContext const& context, vk::raii::CommandPool const& commandPool, std::span<uint16_t const> indices)
+Buffer Buffer::forIndices(VulkanContext const& context, vk::raii::CommandPool const& commandPool, std::span<uint32_t const> indices)
 {
 	return createDeviceLocal(context, commandPool, indices.data(), indices.size_bytes(), vk::BufferUsageFlagBits::eIndexBuffer);
 }

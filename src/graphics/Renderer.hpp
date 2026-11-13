@@ -5,6 +5,7 @@
 #include "RenderContext.hpp"
 #include "GraphicsPipeline.hpp"
 #include "Buffer.hpp"
+#include "Mesh.hpp"
 #include "FrameData.hpp"
 #include "Texture.hpp"
 #include "DepthBuffer.hpp"
@@ -45,8 +46,7 @@ private:
 	// Only for one-off uploads; per-frame command buffers live in the RenderContext.
 	vk::raii::CommandPool uploadCommandPool;
 
-	Buffer vertexBuffer;
-	Buffer indexBuffer;
+	Mesh mesh;
 
 	Texture texture;
 

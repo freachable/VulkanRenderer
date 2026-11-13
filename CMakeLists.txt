@@ -105,6 +105,8 @@ add_executable(${PROJECT_NAME}
   src/graphics/FrameData.cpp
   src/graphics/RenderContext.cpp
   src/graphics/Renderer.cpp
+  src/graphics/Mesh.cpp
+  src/assets/ObjLoader.cpp
   src/platform/Window.cpp
 )
 target_include_directories(${PROJECT_NAME} PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/src")
@@ -128,8 +130,13 @@ target_compile_definitions(${PROJECT_NAME} PRIVATE
   VULKAN_HPP_HANDLE_ERROR_OUT_OF_DATE_AS_SUCCESS
   "VR_VALIDATION_LAYER_DIR=\"${VALIDATION_LAYER_DIR}\""
   "VR_SHADER_PATH=\"${SHADER_SPV}\""
-  "VR_TEXTURE_PATH=\"${CMAKE_CURRENT_SOURCE_DIR}/textures/texture.jpg\""
+  "VR_TEXTURE_PATH=\"${CMAKE_CURRENT_SOURCE_DIR}/textures/viking_room.png\""
+  "VR_MODEL_PATH=\"${CMAKE_CURRENT_SOURCE_DIR}/models/viking_room.obj\""
+
+  # Vulkan's clip-space depth is [0, 1], not OpenGL's [-1, 1]. Must be set before any glm include.
+  GLM_FORCE_DEPTH_ZERO_TO_ONE
   $<$<BOOL:${ENABLE_CPP20_MODULE}>:USE_CPP20_MODULES=1>
+
   # MSVC flags std::getenv as deprecated
   $<$<CXX_COMPILER_ID:MSVC>:_CRT_SECURE_NO_WARNINGS>
 )

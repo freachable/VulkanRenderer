@@ -1,37 +1,19 @@
 #include "Renderer.hpp"
 
 #include "Shader.hpp"
-#include "Vertex.hpp"
+#include "assets/ObjLoader.hpp"
 
 #include <array>
 #include <cstdint>
 #include <cstring>
 
-#define GLM_FORCE_DEPTH_ZERO_TO_ONE
+// GLM_FORCE_DEPTH_ZERO_TO_ONE is set for the whole target in CMakeLists.txt; defining it here
+// would come too late, since Vertex.hpp has already included glm.
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 
 namespace
 {
-	const std::vector<Vertex> vertices = 
-	{
-		{ { -0.5f, -0.5f, 0.0f },{ 1.0f, 0.0f, 0.0f },{ 0.0f, 0.0f } },
-		{ { 0.5f, -0.5f, 0.0f },{ 0.0f, 1.0f, 0.0f },{ 1.0f, 0.0f } },
-		{ { 0.5f, 0.5f, 0.0f },{ 0.0f, 0.0f, 1.0f },{ 1.0f, 1.0f } },
-		{ { -0.5f, 0.5f, 0.0f },{ 1.0f, 1.0f, 1.0f },{ 0.0f, 1.0f } },
-
-		{ { -0.5f, -0.5f, -0.5f },{ 1.0f, 0.0f, 0.0f },{ 0.0f, 0.0f } },
-		{ { 0.5f, -0.5f, -0.5f },{ 0.0f, 1.0f, 0.0f },{ 1.0f, 0.0f } },
-		{ { 0.5f, 0.5f, -0.5f },{ 0.0f, 0.0f, 1.0f },{ 1.0f, 1.0f } },
-		{ { -0.5f, 0.5f, -0.5f },{ 1.0f, 1.0f, 1.0f },{ 0.0f, 1.0f } }
-	};
-
-	const std::vector<uint16_t> indices = 
-	{
-		0, 1, 2, 2, 3, 0,
-		4, 5, 6, 6, 7, 4
-	};
-
 	struct UniformBufferObject
 	{
 		alignas(16) glm::mat4 model;
@@ -143,8 +125,7 @@ Renderer::Renderer(VulkanContext const& context, RenderContext const& renderCont
 	: depthBuffer(context, renderContext.getSwapchain().getExtent())
 	, graphicsPipeline(createGraphicsPipeline(context, renderContext.getSwapchain().getSurfaceFormat().format, depthBuffer.getFormat()))
 	, uploadCommandPool(createUploadCommandPool(context))
-	, vertexBuffer(Buffer::forVertices(context, uploadCommandPool, vertices))
-	, indexBuffer(Buffer::forIndices(context, uploadCommandPool, indices))
+	, mesh(context, uploadCommandPool, loadObj(VR_MODEL_PATH))
 	, texture(context, uploadCommandPool, VR_TEXTURE_PATH)
 	, textureSampler(createTextureSampler(context))
 	, descriptorPool(createDescriptorPool(context, renderContext.getFramesInFlight()))
@@ -235,14 +216,13 @@ void Renderer::draw(Frame const& frame)
 
 	commandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics, *graphicsPipeline.getHandle());
 
-	commandBuffer.bindVertexBuffers(0, *vertexBuffer.getHandle(), { 0 });
-	commandBuffer.bindIndexBuffer(*indexBuffer.getHandle(), 0, vk::IndexType::eUint16);
+	mesh.bind(commandBuffer);
 
 	commandBuffer.setViewport(0, vk::Viewport(0.0f, static_cast<float>(frame.extent.height), static_cast<float>(frame.extent.width), -static_cast<float>(frame.extent.height), 0.0f, 1.0f));
 	commandBuffer.setScissor(0, vk::Rect2D(vk::Offset2D(0, 0), frame.extent));
 
 	commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, graphicsPipeline.getLayout(), 0, *frameData.descriptorSet, nullptr);
-	commandBuffer.drawIndexed(static_cast<uint32_t>(indices.size()), 1, 0, 0, 0);
+	mesh.draw(commandBuffer);
 
 	commandBuffer.endRendering();
 }

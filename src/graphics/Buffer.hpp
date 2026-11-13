@@ -13,7 +13,7 @@ class Buffer
 public:
 	// Device-local buffers, filled through a staging buffer and a one-off copy on the graphics queue.
 	static Buffer forVertices(VulkanContext const& context, vk::raii::CommandPool const& commandPool, std::span<Vertex const> vertices);
-	static Buffer forIndices(VulkanContext const& context, vk::raii::CommandPool const& commandPool, std::span<uint16_t const> indices);
+	static Buffer forIndices(VulkanContext const& context, vk::raii::CommandPool const& commandPool, std::span<uint32_t const> indices);
 
 	// Host-visible and coherent, mapped for its whole lifetime (see getMapped()).
 	static Buffer forUniform(VulkanContext const& context, vk::DeviceSize size);
