@@ -172,7 +172,7 @@ function(add_slang_shader_target TARGET)
 endfunction()
 
 add_slang_shader_target(VulkanRendererShaders
-  SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/shaders/shader.slang"
+  SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/assets/shaders/shader.slang"
   OUTPUT  "${SHADER_SPV}"
 )
 add_dependencies(${PROJECT_NAME} VulkanRendererShaders)

@@ -10,7 +10,7 @@ class AssetPaths
 public:
 	static std::filesystem::path getTexture(std::string_view name); // assets/textures/<name>
 	static std::filesystem::path getMesh(std::string_view name);    // assets/meshes/<name>
-	static std::filesystem::path getShader(std::string_view name);  // <bin>/shaders/<name>.spv
+	static std::filesystem::path getShader(std::string_view name);  // <bin>/shaders/<name>.spv (compiled from assets/shaders/<name>.slang)
 
 private:
 	static std::filesystem::path resolve(std::filesystem::path const& path);

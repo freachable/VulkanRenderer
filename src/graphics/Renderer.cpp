@@ -8,8 +8,6 @@
 #include <cstdint>
 #include <cstring>
 
-// GLM_FORCE_DEPTH_ZERO_TO_ONE is set for the whole target in CMakeLists.txt; defining it here
-// would come too late, since Vertex.hpp has already included glm.
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 
