@@ -1,18 +1,18 @@
 #pragma once
 
-#include "Vulkan.hpp"
-#include "VulkanContext.hpp"
-#include "Buffer.hpp"
 #include "assets/MeshData.hpp"
+#include "graphics/gpu/Buffer.hpp"
+#include "graphics/vulkan/Vulkan.hpp"
+#include "graphics/vulkan/VulkanContext.hpp"
 
 #include <cstdint>
 
-// Indexed triangle geometry in device-local memory, laid out as Vertex at binding 0.
+// Indexed triangle geometry in device-local memory, laid out as described in graphics/gpu/VertexLayout.
 class Mesh
 {
 public:
 	// Uploads data through a staging buffer; blocks until the copies are done.
-	Mesh(VulkanContext const& context, vk::raii::CommandPool const& uploadCommandPool, MeshData const& data);
+	Mesh(VulkanContext const& context, MeshData const& data);
 
 	Mesh(Mesh&&) noexcept = default;
 	Mesh& operator=(Mesh&&) noexcept = default;

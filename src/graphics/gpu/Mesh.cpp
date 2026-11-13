@@ -1,5 +1,6 @@
 #include "Mesh.hpp"
 
+#include <span>
 #include <stdexcept>
 
 namespace
@@ -15,9 +16,9 @@ namespace
 	}
 }
 
-Mesh::Mesh(VulkanContext const& context, vk::raii::CommandPool const& uploadCommandPool, MeshData const& data)
-	: vertexBuffer(Buffer::forVertices(context, uploadCommandPool, validated(data).vertices))
-	, indexBuffer(Buffer::forIndices(context, uploadCommandPool, data.indices))
+Mesh::Mesh(VulkanContext const& context, MeshData const& data)
+	: vertexBuffer(Buffer::forDeviceLocal(context, std::as_bytes(std::span(validated(data).vertices)), vk::BufferUsageFlagBits::eVertexBuffer))
+	, indexBuffer(Buffer::forDeviceLocal(context, std::as_bytes(std::span(data.indices)), vk::BufferUsageFlagBits::eIndexBuffer))
 	, indexCount(static_cast<uint32_t>(data.indices.size()))
 {
 }

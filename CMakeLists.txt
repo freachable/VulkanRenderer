@@ -94,22 +94,28 @@ set(SHADER_SPV "${SHADER_DIR}/shader.spv")
 add_executable(${PROJECT_NAME}
   src/main.cpp
   src/Application.cpp
-  src/graphics/VulkanContext.cpp
-  src/graphics/Swapchain.cpp
-  src/graphics/Shader.cpp
-  src/graphics/GraphicsPipeline.cpp
-  src/graphics/Buffer.cpp
-  src/graphics/Image.cpp
-  src/graphics/Texture.cpp
-  src/graphics/DepthBuffer.cpp
-  src/graphics/Command.cpp
-  src/graphics/FrameData.cpp
-  src/graphics/RenderContext.cpp
-  src/graphics/Renderer.cpp
-  src/graphics/Mesh.cpp
-  src/assets/ObjLoader.cpp
-  src/assets/AssetPaths.cpp
+
   src/platform/Window.cpp
+
+  src/assets/AssetPaths.cpp
+  src/assets/ObjLoader.cpp
+  src/assets/ImageLoader.cpp
+
+  src/graphics/vulkan/VulkanContext.cpp
+  src/graphics/vulkan/Swapchain.cpp
+  src/graphics/vulkan/RenderContext.cpp
+  src/graphics/vulkan/Barriers.cpp
+
+  src/graphics/gpu/Buffer.cpp
+  src/graphics/gpu/Image.cpp
+  src/graphics/gpu/Texture.cpp
+  src/graphics/gpu/DepthBuffer.cpp
+  src/graphics/gpu/Mesh.cpp
+  src/graphics/gpu/Shader.cpp
+  src/graphics/gpu/GraphicsPipeline.cpp
+
+  src/graphics/renderer/Renderer.cpp
+  src/graphics/renderer/FrameResources.cpp
 )
 target_include_directories(${PROJECT_NAME} PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/src")
 

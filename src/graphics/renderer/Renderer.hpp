@@ -1,14 +1,13 @@
 #pragma once
 
-#include "Vulkan.hpp"
-#include "VulkanContext.hpp"
-#include "RenderContext.hpp"
-#include "GraphicsPipeline.hpp"
-#include "Buffer.hpp"
-#include "Mesh.hpp"
-#include "FrameData.hpp"
-#include "Texture.hpp"
-#include "DepthBuffer.hpp"
+#include "graphics/gpu/DepthBuffer.hpp"
+#include "graphics/gpu/GraphicsPipeline.hpp"
+#include "graphics/gpu/Mesh.hpp"
+#include "graphics/gpu/Texture.hpp"
+#include "graphics/renderer/FrameResources.hpp"
+#include "graphics/vulkan/RenderContext.hpp"
+#include "graphics/vulkan/Vulkan.hpp"
+#include "graphics/vulkan/VulkanContext.hpp"
 
 #include <chrono>
 #include <vector>
@@ -36,18 +35,17 @@ public:
 	void onSwapchainRecreated(Swapchain const& swapchain);
 
 private:
-	void updateUniformBuffer(FrameData& frameData, vk::Extent2D extent);
+	void updateUniformBuffer(FrameResources& frameResources, vk::Extent2D extent);
 
-	// Declared before graphicsPipeline: the pipeline will be created with its format.
+	// Declared before graphicsPipeline: the pipeline is created with its format.
 	DepthBuffer depthBuffer;
+
+	// Declared before graphicsPipeline: the pipeline layout is created from it.
+	vk::raii::DescriptorSetLayout descriptorSetLayout;
 
 	GraphicsPipeline graphicsPipeline;
 
-	// Only for one-off uploads; per-frame command buffers live in the RenderContext.
-	vk::raii::CommandPool uploadCommandPool;
-
-	Mesh mesh;
-
+	Mesh    mesh;
 	Texture texture;
 
 	// Shared by all textures; it only says how they are sampled.
@@ -57,7 +55,7 @@ private:
 
 	// One per frame in flight, indexed by Frame::frameIndex.
 	// Declared after descriptorPool, so it is destroyed before it.
-	std::vector<FrameData> frames;
+	std::vector<FrameResources> frames;
 
 	std::chrono::steady_clock::time_point startTime;
 };

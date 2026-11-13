@@ -1,7 +1,7 @@
 #pragma once
 
-#include "Vulkan.hpp"
-#include "VulkanContext.hpp"
+#include "graphics/vulkan/Vulkan.hpp"
+#include "graphics/vulkan/VulkanContext.hpp"
 
 #include <cstdint>
 #include <filesystem>

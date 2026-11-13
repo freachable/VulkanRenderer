@@ -1,6 +1,6 @@
 #pragma once
 
-#include "graphics/Vulkan.hpp"
+#include "graphics/vulkan/Vulkan.hpp"
 
 #include <cstdint>
 #include <span>

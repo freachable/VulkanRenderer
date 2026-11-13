@@ -1,7 +1,7 @@
 #pragma once
 
-#include "Vulkan.hpp"
-#include "VulkanContext.hpp"
+#include "graphics/vulkan/Vulkan.hpp"
+#include "graphics/vulkan/VulkanContext.hpp"
 
 #include <cstdint>
 #include <vector>
@@ -19,16 +19,16 @@ public:
 	// The caller must make sure the device is idle (no image still in use).
 	void recreate(vk::Extent2D framebufferExtent);
 
-	vk::raii::SwapchainKHR const& getHandle() const { return swapChain; }
-	std::vector<vk::Image> const& getImages() const { return swapChainImages; }
-	std::vector<vk::raii::ImageView> const& getImageViews() const { return swapChainImageViews; }
-	vk::SurfaceFormatKHR const& getSurfaceFormat() const { return swapChainSurfaceFormat; }
-	vk::Extent2D const& getExtent() const { return swapChainExtent; }
+	vk::raii::SwapchainKHR const& getHandle() const { return swapchain; }
+	std::vector<vk::Image> const& getImages() const { return images; }
+	std::vector<vk::raii::ImageView> const& getImageViews() const { return imageViews; }
+	vk::SurfaceFormatKHR const& getSurfaceFormat() const { return surfaceFormat; }
+	vk::Extent2D const& getExtent() const { return extent; }
 
 private:
-	void createSwapChain(vk::Extent2D framebufferExtent);
+	void createSwapchain(vk::Extent2D framebufferExtent);
 	void createImageViews();
-	void cleanupSwapChain();
+	void destroySwapchain();
 
 	static vk::Extent2D chooseSwapExtent(vk::SurfaceCapabilitiesKHR const& capabilities, vk::Extent2D framebufferExtent);
 	static vk::SurfaceFormatKHR chooseSwapSurfaceFormat(std::vector<vk::SurfaceFormatKHR> const& availableFormats);
@@ -37,9 +37,9 @@ private:
 
 	VulkanContext const& context;
 
-	vk::raii::SwapchainKHR           swapChain = nullptr;
-	std::vector<vk::Image>           swapChainImages;
-	vk::SurfaceFormatKHR             swapChainSurfaceFormat;
-	vk::Extent2D                     swapChainExtent;
-	std::vector<vk::raii::ImageView> swapChainImageViews;
+	vk::raii::SwapchainKHR           swapchain = nullptr;
+	std::vector<vk::Image>           images;
+	vk::SurfaceFormatKHR             surfaceFormat;
+	vk::Extent2D                     extent;
+	std::vector<vk::raii::ImageView> imageViews;
 };

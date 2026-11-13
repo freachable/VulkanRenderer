@@ -7,22 +7,22 @@
 Swapchain::Swapchain(VulkanContext const& context, vk::Extent2D framebufferExtent)
 	: context(context)
 {
-	createSwapChain(framebufferExtent);
+	createSwapchain(framebufferExtent);
 	createImageViews();
 }
 
 void Swapchain::recreate(vk::Extent2D framebufferExtent)
 {
-	cleanupSwapChain();
+	destroySwapchain();
 
-	createSwapChain(framebufferExtent);
+	createSwapchain(framebufferExtent);
 	createImageViews();
 }
 
-void Swapchain::cleanupSwapChain()
+void Swapchain::destroySwapchain()
 {
-	swapChainImageViews.clear();
-	swapChain = nullptr;
+	imageViews.clear();
+	swapchain = nullptr;
 }
 
 vk::Extent2D Swapchain::chooseSwapExtent(vk::SurfaceCapabilitiesKHR const& capabilities, vk::Extent2D framebufferExtent)
@@ -68,23 +68,23 @@ uint32_t Swapchain::chooseSwapMinImageCount(vk::SurfaceCapabilitiesKHR const& su
 	return minImageCount;
 }
 
-void Swapchain::createSwapChain(vk::Extent2D framebufferExtent)
+void Swapchain::createSwapchain(vk::Extent2D framebufferExtent)
 {
 	vk::SurfaceCapabilitiesKHR surfaceCapabilities = context.getPhysicalDevice().getSurfaceCapabilitiesKHR(*context.getSurface());
-	swapChainExtent = chooseSwapExtent(surfaceCapabilities, framebufferExtent);
+	extent = chooseSwapExtent(surfaceCapabilities, framebufferExtent);
 	uint32_t minImageCount = chooseSwapMinImageCount(surfaceCapabilities);
 
 	std::vector<vk::SurfaceFormatKHR> availableFormats = context.getPhysicalDevice().getSurfaceFormatsKHR(*context.getSurface());
-	swapChainSurfaceFormat = chooseSwapSurfaceFormat(availableFormats);
+	surfaceFormat = chooseSwapSurfaceFormat(availableFormats);
 
 	std::vector<vk::PresentModeKHR> availablePresentModes = context.getPhysicalDevice().getSurfacePresentModesKHR(*context.getSurface());
 
-	vk::SwapchainCreateInfoKHR swapChainCreateInfo{
+	vk::SwapchainCreateInfoKHR createInfo{
 		.surface = *context.getSurface(),
 		.minImageCount = minImageCount,
-		.imageFormat = swapChainSurfaceFormat.format,
-		.imageColorSpace = swapChainSurfaceFormat.colorSpace,
-		.imageExtent = swapChainExtent,
+		.imageFormat = surfaceFormat.format,
+		.imageColorSpace = surfaceFormat.colorSpace,
+		.imageExtent = extent,
 		.imageArrayLayers = 1,
 		.imageUsage = vk::ImageUsageFlagBits::eColorAttachment,
 		.imageSharingMode = vk::SharingMode::eExclusive,
@@ -94,24 +94,24 @@ void Swapchain::createSwapChain(vk::Extent2D framebufferExtent)
 		.clipped = true
 	};
 
-	swapChain = vk::raii::SwapchainKHR(context.getDevice(), swapChainCreateInfo);
-	swapChainImages = swapChain.getImages();
+	swapchain = vk::raii::SwapchainKHR(context.getDevice(), createInfo);
+	images = swapchain.getImages();
 }
 
 void Swapchain::createImageViews()
 {
-	assert(swapChainImageViews.empty());
+	assert(imageViews.empty());
 
 	vk::ImageViewCreateInfo imageViewCreateInfo
 	{
 		.viewType = vk::ImageViewType::e2D,
-		.format = swapChainSurfaceFormat.format,
+		.format = surfaceFormat.format,
 		.subresourceRange = { vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1 }
 	};
 
-	for (auto& image : swapChainImages)
+	for (auto& image : images)
 	{
 		imageViewCreateInfo.image = image;
-		swapChainImageViews.emplace_back(context.getDevice(), imageViewCreateInfo);
+		imageViews.emplace_back(context.getDevice(), imageViewCreateInfo);
 	}
 }

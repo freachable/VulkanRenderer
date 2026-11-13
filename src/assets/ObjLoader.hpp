@@ -1,6 +1,6 @@
 #pragma once
 
-#include "MeshData.hpp"
+#include "assets/MeshData.hpp"
 
 #include <filesystem>
 

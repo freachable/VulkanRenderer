@@ -1,22 +1,18 @@
 #include "GraphicsPipeline.hpp"
 
-#include "Vertex.hpp"
+#include <array>
+#include <cstdint>
 
-#include <vector>
-
-GraphicsPipeline::GraphicsPipeline(VulkanContext const& context, Shader const& shader, vk::Format colorFormat, vk::Format depthFormat)
+GraphicsPipeline::GraphicsPipeline(VulkanContext const& context, Shader const& shader, GraphicsPipelineConfig const& config)
 {
-	createDescriptorSetLayout(context);
-
-	auto bindingDescription = Vertex::getBindingDescription();
-	auto attributeDescriptions = Vertex::getAttributeDescriptions();
+	bool const hasDepth = config.depthFormat != vk::Format::eUndefined;
 
 	vk::PipelineVertexInputStateCreateInfo vertexInputInfo
 	{
-		.vertexBindingDescriptionCount = 1,
-		.pVertexBindingDescriptions = &bindingDescription,
-		.vertexAttributeDescriptionCount = static_cast<uint32_t>(attributeDescriptions.size()),
-		.pVertexAttributeDescriptions = attributeDescriptions.data()
+		.vertexBindingDescriptionCount   = static_cast<uint32_t>(config.vertexBindings.size()),
+		.pVertexBindingDescriptions      = config.vertexBindings.data(),
+		.vertexAttributeDescriptionCount = static_cast<uint32_t>(config.vertexAttributes.size()),
+		.pVertexAttributeDescriptions    = config.vertexAttributes.data()
 	};
 
 	vk::PipelineInputAssemblyStateCreateInfo inputAssembly
@@ -35,7 +31,7 @@ GraphicsPipeline::GraphicsPipeline(VulkanContext const& context, Shader const& s
 		.depthClampEnable = vk::False,
 		.rasterizerDiscardEnable = vk::False,
 		.polygonMode = vk::PolygonMode::eFill,
-		.cullMode = vk::CullModeFlagBits::eBack,
+		.cullMode = config.cullMode,
 		.frontFace = vk::FrontFace::eCounterClockwise,
 		.depthBiasEnable = vk::False,
 		.lineWidth = 1.0f
@@ -49,9 +45,9 @@ GraphicsPipeline::GraphicsPipeline(VulkanContext const& context, Shader const& s
 
 	vk::PipelineDepthStencilStateCreateInfo depthStencil
 	{
-		.depthTestEnable = vk::True,
-		.depthWriteEnable = vk::True,
-		.depthCompareOp = vk::CompareOp::eLess, // Closer fragments win; the buffer is cleared to 1.0.
+		.depthTestEnable = hasDepth ? vk::True : vk::False,
+		.depthWriteEnable = hasDepth ? vk::True : vk::False,
+		.depthCompareOp = vk::CompareOp::eLess, // Closer fragments win; clear depth to 1.0.
 		.depthBoundsTestEnable = vk::False,
 		.stencilTestEnable = vk::False
 	};
@@ -70,7 +66,7 @@ GraphicsPipeline::GraphicsPipeline(VulkanContext const& context, Shader const& s
 		.pAttachments = &colorBlendAttachment
 	};
 
-	std::vector<vk::DynamicState> dynamicStates = { vk::DynamicState::eViewport, vk::DynamicState::eScissor };
+	std::array dynamicStates = { vk::DynamicState::eViewport, vk::DynamicState::eScissor };
 
 	vk::PipelineDynamicStateCreateInfo dynamicState
 	{
@@ -80,8 +76,8 @@ GraphicsPipeline::GraphicsPipeline(VulkanContext const& context, Shader const& s
 
 	vk::PipelineLayoutCreateInfo pipelineLayoutInfo
 	{
-		.setLayoutCount = 1,
-		.pSetLayouts = &*descriptorSetLayout,
+		.setLayoutCount = static_cast<uint32_t>(config.descriptorSetLayouts.size()),
+		.pSetLayouts = config.descriptorSetLayouts.data(),
 		.pushConstantRangeCount = 0
 	};
 
@@ -105,39 +101,10 @@ GraphicsPipeline::GraphicsPipeline(VulkanContext const& context, Shader const& s
 		},
 		{
 			.colorAttachmentCount = 1,
-			.pColorAttachmentFormats = &colorFormat,
-			.depthAttachmentFormat = depthFormat
+			.pColorAttachmentFormats = &config.colorFormat,
+			.depthAttachmentFormat = config.depthFormat
 		}
 	};
 
 	pipeline = vk::raii::Pipeline(context.getDevice(), nullptr, pipelineCreateInfoChain.get<vk::GraphicsPipelineCreateInfo>());
-}
-
-void GraphicsPipeline::createDescriptorSetLayout(VulkanContext const& context)
-{
-	std::array<vk::DescriptorSetLayoutBinding, 2> bindings
-	{
-		{ 
-			{ 
-				.binding = 0, 
-				.descriptorType = vk::DescriptorType::eUniformBuffer, 
-				.descriptorCount = 1, 
-				.stageFlags = vk::ShaderStageFlagBits::eVertex 
-			},
-			{ 
-				.binding = 1, 
-				.descriptorType = vk::DescriptorType::eCombinedImageSampler, 
-				.descriptorCount = 1, 
-				.stageFlags = vk::ShaderStageFlagBits::eFragment 
-			} 
-		} 
-	};
-
-	vk::DescriptorSetLayoutCreateInfo layoutInfo
-	{
-		.bindingCount = static_cast<uint32_t>(bindings.size()),
-		.pBindings = bindings.data()
-	};
-
-	descriptorSetLayout = vk::raii::DescriptorSetLayout(context.getDevice(), layoutInfo);
 }

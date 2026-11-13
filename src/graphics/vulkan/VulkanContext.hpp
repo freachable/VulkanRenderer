@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Vulkan.hpp"
+#include "graphics/vulkan/Vulkan.hpp"
 
 #include <cstdint>
 #include <functional>
@@ -47,6 +47,13 @@ public:
 	std::span<char const* const> getDeviceExtensions() const { return deviceExtensions; }
 	bool isValidationEnabled() const { return validationEnabled; }
 
+	// Index of a memory type allowed by typeFilter (a memoryTypeBits mask) that has all the given properties.
+	uint32_t findMemoryType(uint32_t typeFilter, vk::MemoryPropertyFlags properties) const;
+
+	// Records commands with `record`, submits them to the graphics queue and waits until they are done.
+	// Meant for one-off work such as uploads; far too slow to use every frame. Not thread-safe.
+	void immediateSubmit(std::function<void(vk::raii::CommandBuffer const&)> const& record) const;
+
 private:
 	void createInstance(VulkanContextConfig const& config);
 	void setupDebugMessenger();
@@ -54,6 +61,7 @@ private:
 	void pickPhysicalDevice();
 	bool isDeviceSuitable(vk::raii::PhysicalDevice const& candidate) const;
 	void createLogicalDevice();
+	void createImmediateCommandPool();
 
 	bool validationEnabled = false;
 	std::vector<char const*> deviceExtensions;
@@ -66,4 +74,7 @@ private:
 	vk::raii::PhysicalDevice         physicalDevice = nullptr;
 	vk::raii::Device                 device         = nullptr;
 	vk::raii::Queue                  graphicsQueue  = nullptr;
+
+	// Only for immediateSubmit; per-frame command buffers live in the RenderContext.
+	vk::raii::CommandPool            immediateCommandPool = nullptr;
 };

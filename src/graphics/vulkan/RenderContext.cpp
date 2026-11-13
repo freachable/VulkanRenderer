@@ -1,5 +1,7 @@
 #include "RenderContext.hpp"
 
+#include "graphics/vulkan/Barriers.hpp"
+
 #include <cassert>
 #include <stdexcept>
 #include <utility>
@@ -27,48 +29,6 @@ namespace
 		};
 
 		return std::move(vk::raii::CommandBuffers(context.getDevice(), allocInfo).front());
-	}
-
-	void transitionImageLayout(
-		vk::raii::CommandBuffer const& commandBuffer,
-		vk::Image                      image,
-		vk::ImageLayout                oldLayout,
-		vk::ImageLayout                newLayout,
-		vk::AccessFlags2               srcAccessMask,
-		vk::AccessFlags2               dstAccessMask,
-		vk::PipelineStageFlags2        srcStageMask,
-		vk::PipelineStageFlags2        dstStageMask
-	)
-	{
-		vk::ImageMemoryBarrier2 barrier =
-		{
-			.srcStageMask = srcStageMask,
-			.srcAccessMask = srcAccessMask,
-			.dstStageMask = dstStageMask,
-			.dstAccessMask = dstAccessMask,
-			.oldLayout = oldLayout,
-			.newLayout = newLayout,
-			.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-			.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-			.image = image,
-			.subresourceRange =
-			{
-				.aspectMask = vk::ImageAspectFlagBits::eColor,
-				.baseMipLevel = 0,
-				.levelCount = 1,
-				.baseArrayLayer = 0,
-				.layerCount = 1
-			}
-		};
-
-		vk::DependencyInfo dependencyInfo =
-		{
-			.dependencyFlags = {},
-			.imageMemoryBarrierCount = 1,
-			.pImageMemoryBarriers = &barrier
-		};
-
-		commandBuffer.pipelineBarrier2(dependencyInfo);
 	}
 }
 
@@ -133,16 +93,15 @@ std::optional<Frame> RenderContext::beginFrame()
 
 	vk::Image image = swapchain.getImages()[imageIndex];
 
-	transitionImageLayout(
-		frame.commandBuffer,
-		image,
-		vk::ImageLayout::eUndefined,
-		vk::ImageLayout::eColorAttachmentOptimal,
-		{},                                                 // srcAccessMask (no need to wait for previous operations)
-		vk::AccessFlagBits2::eColorAttachmentWrite,         // dstAccessMask
-		vk::PipelineStageFlagBits2::eColorAttachmentOutput, // srcStage
-		vk::PipelineStageFlagBits2::eColorAttachmentOutput  // dstStage
-	);
+	transitionImage(frame.commandBuffer, image, vk::ImageAspectFlagBits::eColor,
+	{
+		.oldLayout = vk::ImageLayout::eUndefined,
+		.newLayout = vk::ImageLayout::eColorAttachmentOptimal,
+		.srcStage  = vk::PipelineStageFlagBits2::eColorAttachmentOutput,
+		.srcAccess = {}, // The old contents are discarded, so there are no writes to wait for.
+		.dstStage  = vk::PipelineStageFlagBits2::eColorAttachmentOutput,
+		.dstAccess = vk::AccessFlagBits2::eColorAttachmentWrite
+	});
 
 	frameInProgress = true;
 
@@ -164,16 +123,15 @@ void RenderContext::endFrame(Frame const& frame)
 
 	FrameSync& sync = frames[frameIndex];
 
-	transitionImageLayout(
-		sync.commandBuffer,
-		frame.image,
-		vk::ImageLayout::eColorAttachmentOptimal,
-		vk::ImageLayout::ePresentSrcKHR,
-		vk::AccessFlagBits2::eColorAttachmentWrite,         // srcAccessMask
-		{},                                                 // dstAccessMask
-		vk::PipelineStageFlagBits2::eColorAttachmentOutput, // srcStage
-		vk::PipelineStageFlagBits2::eBottomOfPipe           // dstStage
-	);
+	transitionImage(sync.commandBuffer, frame.image, vk::ImageAspectFlagBits::eColor,
+	{
+		.oldLayout = vk::ImageLayout::eColorAttachmentOptimal,
+		.newLayout = vk::ImageLayout::ePresentSrcKHR,
+		.srcStage  = vk::PipelineStageFlagBits2::eColorAttachmentOutput,
+		.srcAccess = vk::AccessFlagBits2::eColorAttachmentWrite,
+		.dstStage  = vk::PipelineStageFlagBits2::eBottomOfPipe,
+		.dstAccess = {}
+	});
 
 	sync.commandBuffer.end();
 

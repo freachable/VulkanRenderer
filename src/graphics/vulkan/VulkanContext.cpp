@@ -5,6 +5,7 @@
 #include <iostream>
 #include <stdexcept>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace
@@ -61,6 +62,58 @@ VulkanContext::VulkanContext(VulkanContextConfig const& config)
 	createSurface(config);
 	pickPhysicalDevice();
 	createLogicalDevice();
+	createImmediateCommandPool();
+}
+
+uint32_t VulkanContext::findMemoryType(uint32_t typeFilter, vk::MemoryPropertyFlags properties) const
+{
+	vk::PhysicalDeviceMemoryProperties memProperties = physicalDevice.getMemoryProperties();
+
+	for (uint32_t i = 0; i < memProperties.memoryTypeCount; i++)
+	{
+		if ((typeFilter & (1 << i)) && (memProperties.memoryTypes[i].propertyFlags & properties) == properties)
+		{
+			return i;
+		}
+	}
+
+	throw std::runtime_error("failed to find suitable memory type!");
+}
+
+void VulkanContext::immediateSubmit(std::function<void(vk::raii::CommandBuffer const&)> const& record) const
+{
+	vk::CommandBufferAllocateInfo allocInfo
+	{
+		.commandPool        = immediateCommandPool,
+		.level              = vk::CommandBufferLevel::ePrimary,
+		.commandBufferCount = 1
+	};
+
+	vk::raii::CommandBuffer commandBuffer = std::move(vk::raii::CommandBuffers(device, allocInfo).front());
+
+	commandBuffer.begin(vk::CommandBufferBeginInfo{ .flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit });
+	record(commandBuffer);
+	commandBuffer.end();
+
+	vk::SubmitInfo submitInfo
+	{
+		.commandBufferCount = 1,
+		.pCommandBuffers    = &*commandBuffer
+	};
+
+	graphicsQueue.submit(submitInfo, nullptr);
+	graphicsQueue.waitIdle();
+}
+
+void VulkanContext::createImmediateCommandPool()
+{
+	vk::CommandPoolCreateInfo poolInfo
+	{
+		.flags            = vk::CommandPoolCreateFlagBits::eTransient,
+		.queueFamilyIndex = graphicsQueueFamilyIndex
+	};
+
+	immediateCommandPool = vk::raii::CommandPool(device, poolInfo);
 }
 
 void VulkanContext::createSurface(VulkanContextConfig const& config)

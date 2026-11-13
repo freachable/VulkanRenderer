@@ -1,29 +1,24 @@
 #include "Renderer.hpp"
 
-#include "Shader.hpp"
 #include "assets/AssetPaths.hpp"
+#include "assets/ImageLoader.hpp"
 #include "assets/ObjLoader.hpp"
+#include "graphics/gpu/Shader.hpp"
+#include "graphics/gpu/VertexLayout.hpp"
+#include "graphics/vulkan/Barriers.hpp"
 
-#include <array>
 #include <cstdint>
 #include <cstring>
 
-#include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 
 namespace
 {
-	struct UniformBufferObject
-	{
-		alignas(16) glm::mat4 model;
-		alignas(16) glm::mat4 view;
-		alignas(16) glm::mat4 proj;
-	};
-
 	// The helpers below build one member each for the constructor's initializer list.
 	// They return by value; for the non-movable types this relies on C++17 guaranteed copy elision.
 
-	GraphicsPipeline createGraphicsPipeline(VulkanContext const& context, vk::Format colorFormat, vk::Format depthFormat)
+	GraphicsPipeline createGraphicsPipeline(VulkanContext const& context, vk::DescriptorSetLayout descriptorSetLayout,
+	                                        vk::Format colorFormat, vk::Format depthFormat)
 	{
 		Shader shader(context, AssetPaths::getShader("shader"),
 		{
@@ -31,18 +26,17 @@ namespace
 			{ vk::ShaderStageFlagBits::eFragment, "fragMain" }
 		});
 
-		return GraphicsPipeline(context, shader, colorFormat, depthFormat);
-	}
+		auto const vertexBinding    = getVertexBindingDescription();
+		auto const vertexAttributes = getVertexAttributeDescriptions();
 
-	vk::raii::CommandPool createUploadCommandPool(VulkanContext const& context)
-	{
-		vk::CommandPoolCreateInfo poolInfo
+		return GraphicsPipeline(context, shader, GraphicsPipelineConfig
 		{
-			.flags = vk::CommandPoolCreateFlagBits::eTransient,
-			.queueFamilyIndex = context.getGraphicsQueueFamilyIndex()
-		};
-
-		return vk::raii::CommandPool(context.getDevice(), poolInfo);
+			.colorFormat          = colorFormat,
+			.depthFormat          = depthFormat,
+			.descriptorSetLayouts = { &descriptorSetLayout, 1 },
+			.vertexBindings       = { &vertexBinding, 1 },
+			.vertexAttributes     = vertexAttributes
+		});
 	}
 
 	vk::raii::Sampler createTextureSampler(VulkanContext const& context)
@@ -67,53 +61,19 @@ namespace
 		return vk::raii::Sampler(context.getDevice(), samplerInfo);
 	}
 
-	vk::raii::DescriptorPool createDescriptorPool(VulkanContext const& context, uint32_t framesInFlight)
+	std::vector<FrameResources> createFrames(VulkanContext const& context,
+	                                         vk::raii::DescriptorPool const& descriptorPool,
+	                                         vk::raii::DescriptorSetLayout const& descriptorSetLayout,
+	                                         uint32_t framesInFlight,
+	                                         Texture const& texture,
+	                                         vk::raii::Sampler const& textureSampler)
 	{
-		std::array<vk::DescriptorPoolSize, 2> poolSize
-		{ 
-			{ 
-				{ 
-					.type = vk::DescriptorType::eUniformBuffer, 
-					.descriptorCount = framesInFlight 
-				},
-				{ 
-					.type = vk::DescriptorType::eCombinedImageSampler, 
-					.descriptorCount = framesInFlight 
-				} 
-			} 
-		};
-
-		vk::DescriptorPoolCreateInfo poolInfo
-		{ 
-			.flags = vk::DescriptorPoolCreateFlagBits::eFreeDescriptorSet,
-			.maxSets = framesInFlight,
-			.poolSizeCount = static_cast<uint32_t>(poolSize.size()),
-			.pPoolSizes = poolSize.data() 
-		};
-
-		return vk::raii::DescriptorPool(context.getDevice(), poolInfo);
-	}
-
-	std::vector<FrameData> createFrames(VulkanContext const& context,
-	                                    vk::raii::DescriptorPool const& descriptorPool,
-	                                    GraphicsPipeline const& graphicsPipeline,
-	                                    uint32_t framesInFlight,
-	                                    Texture const& texture,
-	                                    vk::raii::Sampler const& textureSampler)
-	{
-		std::vector<FrameData> frames;
+		std::vector<FrameResources> frames;
 		frames.reserve(framesInFlight);
 
 		for (uint32_t i = 0; i < framesInFlight; i++)
 		{
-			frames.emplace_back(
-				context,
-				descriptorPool,
-				graphicsPipeline.getDescriptorSetLayout(),
-				sizeof(UniformBufferObject),
-				texture.getImageView(),
-				textureSampler
-			);
+			frames.emplace_back(context, descriptorPool, descriptorSetLayout, texture.getImage().getView(), textureSampler);
 		}
 
 		return frames;
@@ -122,13 +82,13 @@ namespace
 
 Renderer::Renderer(VulkanContext const& context, RenderContext const& renderContext)
 	: depthBuffer(context, renderContext.getSwapchain().getExtent())
-	, graphicsPipeline(createGraphicsPipeline(context, renderContext.getSwapchain().getSurfaceFormat().format, depthBuffer.getFormat()))
-	, uploadCommandPool(createUploadCommandPool(context))
-	, mesh(context, uploadCommandPool, loadObj(AssetPaths::getMesh("viking_room.obj")))
-	, texture(context, uploadCommandPool, AssetPaths::getTexture("viking_room.png").string())
+	, descriptorSetLayout(FrameResources::createDescriptorSetLayout(context))
+	, graphicsPipeline(createGraphicsPipeline(context, *descriptorSetLayout, renderContext.getSwapchain().getSurfaceFormat().format, depthBuffer.getFormat()))
+	, mesh(context, loadObj(AssetPaths::getMesh("viking_room.obj")))
+	, texture(context, loadImage(AssetPaths::getTexture("viking_room.png")))
 	, textureSampler(createTextureSampler(context))
-	, descriptorPool(createDescriptorPool(context, renderContext.getFramesInFlight()))
-	, frames(createFrames(context, descriptorPool, graphicsPipeline, renderContext.getFramesInFlight(), texture, textureSampler))
+	, descriptorPool(FrameResources::createDescriptorPool(context, renderContext.getFramesInFlight()))
+	, frames(createFrames(context, descriptorPool, descriptorSetLayout, renderContext.getFramesInFlight(), texture, textureSampler))
 	, startTime(std::chrono::steady_clock::now())
 {
 }
@@ -140,42 +100,27 @@ void Renderer::onSwapchainRecreated(Swapchain const& swapchain)
 
 void Renderer::draw(Frame const& frame)
 {
-	FrameData& frameData = frames[frame.frameIndex];
+	FrameResources& frameResources = frames[frame.frameIndex];
 
 	// Safe to write: beginFrame waited until the GPU was done with this frame slot.
-	updateUniformBuffer(frameData, frame.extent);
+	updateUniformBuffer(frameResources, frame.extent);
 
 	// beginFrame has begun the command buffer and put the image in eColorAttachmentOptimal;
 	// endFrame transitions it for presenting and ends the command buffer.
 	auto const& commandBuffer = frame.commandBuffer;
 
+	Image const& depthImage = depthBuffer.getImage();
+
 	// The depth image is shared by all frames in flight. Wait for the previous frame's depth writes,
 	// then move it to the attachment layout; eUndefined discards the old contents, which get cleared anyway.
-	vk::ImageMemoryBarrier2 depthBarrier =
+	transitionImage(commandBuffer, *depthImage.getHandle(), depthImage.getAspectMask(),
 	{
-		.srcStageMask = vk::PipelineStageFlagBits2::eEarlyFragmentTests | vk::PipelineStageFlagBits2::eLateFragmentTests,
-		.srcAccessMask = vk::AccessFlagBits2::eDepthStencilAttachmentWrite,
-		.dstStageMask = vk::PipelineStageFlagBits2::eEarlyFragmentTests | vk::PipelineStageFlagBits2::eLateFragmentTests,
-		.dstAccessMask = vk::AccessFlagBits2::eDepthStencilAttachmentRead | vk::AccessFlagBits2::eDepthStencilAttachmentWrite,
 		.oldLayout = vk::ImageLayout::eUndefined,
 		.newLayout = vk::ImageLayout::eDepthStencilAttachmentOptimal,
-		.srcQueueFamilyIndex = vk::QueueFamilyIgnored,
-		.dstQueueFamilyIndex = vk::QueueFamilyIgnored,
-		.image = *depthBuffer.getImage(),
-		.subresourceRange =
-		{
-			.aspectMask = depthBuffer.getAspectMask(),
-			.baseMipLevel = 0,
-			.levelCount = 1,
-			.baseArrayLayer = 0,
-			.layerCount = 1
-		}
-	};
-
-	commandBuffer.pipelineBarrier2(vk::DependencyInfo
-	{
-		.imageMemoryBarrierCount = 1,
-		.pImageMemoryBarriers = &depthBarrier
+		.srcStage  = vk::PipelineStageFlagBits2::eEarlyFragmentTests | vk::PipelineStageFlagBits2::eLateFragmentTests,
+		.srcAccess = vk::AccessFlagBits2::eDepthStencilAttachmentWrite,
+		.dstStage  = vk::PipelineStageFlagBits2::eEarlyFragmentTests | vk::PipelineStageFlagBits2::eLateFragmentTests,
+		.dstAccess = vk::AccessFlagBits2::eDepthStencilAttachmentRead | vk::AccessFlagBits2::eDepthStencilAttachmentWrite
 	});
 
 	vk::ClearValue clearColor = vk::ClearColorValue(0.0f, 0.0f, 0.0f, 1.0f);
@@ -191,7 +136,7 @@ void Renderer::draw(Frame const& frame)
 
 	vk::RenderingAttachmentInfo depthAttachmentInfo =
 	{
-		.imageView = *depthBuffer.getImageView(),
+		.imageView = *depthImage.getView(),
 		.imageLayout = vk::ImageLayout::eDepthStencilAttachmentOptimal,
 		.loadOp = vk::AttachmentLoadOp::eClear,
 		.storeOp = vk::AttachmentStoreOp::eDontCare, // Nothing reads depth after the frame.
@@ -220,13 +165,13 @@ void Renderer::draw(Frame const& frame)
 	commandBuffer.setViewport(0, vk::Viewport(0.0f, static_cast<float>(frame.extent.height), static_cast<float>(frame.extent.width), -static_cast<float>(frame.extent.height), 0.0f, 1.0f));
 	commandBuffer.setScissor(0, vk::Rect2D(vk::Offset2D(0, 0), frame.extent));
 
-	commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, graphicsPipeline.getLayout(), 0, *frameData.descriptorSet, nullptr);
+	commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, graphicsPipeline.getLayout(), 0, *frameResources.descriptorSet, nullptr);
 	mesh.draw(commandBuffer);
 
 	commandBuffer.endRendering();
 }
 
-void Renderer::updateUniformBuffer(FrameData& frameData, vk::Extent2D extent)
+void Renderer::updateUniformBuffer(FrameResources& frameResources, vk::Extent2D extent)
 {
 	const float time = std::chrono::duration<float>(std::chrono::steady_clock::now() - startTime).count();
 
@@ -235,5 +180,5 @@ void Renderer::updateUniformBuffer(FrameData& frameData, vk::Extent2D extent)
 	ubo.view = lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
 	ubo.proj = glm::perspective(glm::radians(45.0f), static_cast<float>(extent.width) / static_cast<float>(extent.height), 0.1f, 10.0f);
 
-	std::memcpy(frameData.uniformBuffer.getMapped(), &ubo, sizeof(ubo));
+	std::memcpy(frameResources.uniformBuffer.getMapped(), &ubo, sizeof(ubo));
 }
