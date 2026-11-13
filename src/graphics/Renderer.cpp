@@ -1,6 +1,7 @@
 #include "Renderer.hpp"
 
 #include "Shader.hpp"
+#include "assets/AssetPaths.hpp"
 #include "assets/ObjLoader.hpp"
 
 #include <array>
@@ -26,7 +27,7 @@ namespace
 
 	GraphicsPipeline createGraphicsPipeline(VulkanContext const& context, vk::Format colorFormat, vk::Format depthFormat)
 	{
-		Shader shader(context, VR_SHADER_PATH,
+		Shader shader(context, AssetPaths::getShader("shader"),
 		{
 			{ vk::ShaderStageFlagBits::eVertex,   "vertMain" },
 			{ vk::ShaderStageFlagBits::eFragment, "fragMain" }
@@ -125,8 +126,8 @@ Renderer::Renderer(VulkanContext const& context, RenderContext const& renderCont
 	: depthBuffer(context, renderContext.getSwapchain().getExtent())
 	, graphicsPipeline(createGraphicsPipeline(context, renderContext.getSwapchain().getSurfaceFormat().format, depthBuffer.getFormat()))
 	, uploadCommandPool(createUploadCommandPool(context))
-	, mesh(context, uploadCommandPool, loadObj(VR_MODEL_PATH))
-	, texture(context, uploadCommandPool, VR_TEXTURE_PATH)
+	, mesh(context, uploadCommandPool, loadObj(AssetPaths::getMesh("viking_room.obj")))
+	, texture(context, uploadCommandPool, AssetPaths::getTexture("viking_room.png").string())
 	, textureSampler(createTextureSampler(context))
 	, descriptorPool(createDescriptorPool(context, renderContext.getFramesInFlight()))
 	, frames(createFrames(context, descriptorPool, graphicsPipeline, renderContext.getFramesInFlight(), texture, textureSampler))

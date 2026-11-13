@@ -85,7 +85,8 @@ if(IS_MULTI_CONFIG)
 else()
   set(RUNTIME_DIR "${CMAKE_BINARY_DIR}/bin")
 endif()
-set(SHADER_SPV "${RUNTIME_DIR}/shaders/slang.spv")
+set(SHADER_DIR "${RUNTIME_DIR}/shaders")
+set(SHADER_SPV "${SHADER_DIR}/shader.spv")
 
 # ---------------------------------------------------------------------------
 # Application
@@ -107,6 +108,7 @@ add_executable(${PROJECT_NAME}
   src/graphics/Renderer.cpp
   src/graphics/Mesh.cpp
   src/assets/ObjLoader.cpp
+  src/assets/AssetPaths.cpp
   src/platform/Window.cpp
 )
 target_include_directories(${PROJECT_NAME} PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/src")
@@ -129,9 +131,8 @@ target_compile_definitions(${PROJECT_NAME} PRIVATE
   # Treat VK_ERROR_OUT_OF_DATE_KHR as a success code
   VULKAN_HPP_HANDLE_ERROR_OUT_OF_DATE_AS_SUCCESS
   "VR_VALIDATION_LAYER_DIR=\"${VALIDATION_LAYER_DIR}\""
-  "VR_SHADER_PATH=\"${SHADER_SPV}\""
-  "VR_TEXTURE_PATH=\"${CMAKE_CURRENT_SOURCE_DIR}/textures/viking_room.png\""
-  "VR_MODEL_PATH=\"${CMAKE_CURRENT_SOURCE_DIR}/models/viking_room.obj\""
+  "VR_ASSET_DIR=\"${CMAKE_CURRENT_SOURCE_DIR}/assets\""
+  "VR_SHADER_DIR=\"${SHADER_DIR}\""
 
   # Vulkan's clip-space depth is [0, 1], not OpenGL's [-1, 1]. Must be set before any glm include.
   GLM_FORCE_DEPTH_ZERO_TO_ONE

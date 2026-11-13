@@ -81,3 +81,6 @@ devenv.local.yaml
 
 # pre-commit
 .pre-commit-config.yaml
+
+# Wavefront meshes are assets, not object files
+!assets/**/*.obj
