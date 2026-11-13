@@ -7,6 +7,7 @@
 #include "Buffer.hpp"
 #include "FrameData.hpp"
 #include "Texture.hpp"
+#include "DepthBuffer.hpp"
 
 #include <chrono>
 #include <vector>
@@ -29,8 +30,15 @@ public:
 	// Call between RenderContext::beginFrame and endFrame.
 	void draw(Frame const& frame);
 
+	// Resizes the render targets that match the swapchain. Register it with
+	// RenderContext::setOnSwapchainRecreated; the device is idle when it is called.
+	void onSwapchainRecreated(Swapchain const& swapchain);
+
 private:
 	void updateUniformBuffer(FrameData& frameData, vk::Extent2D extent);
+
+	// Declared before graphicsPipeline: the pipeline will be created with its format.
+	DepthBuffer depthBuffer;
 
 	GraphicsPipeline graphicsPipeline;
 

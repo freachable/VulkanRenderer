@@ -4,7 +4,7 @@
 
 #include <vector>
 
-GraphicsPipeline::GraphicsPipeline(VulkanContext const& context, Shader const& shader, vk::Format colorFormat)
+GraphicsPipeline::GraphicsPipeline(VulkanContext const& context, Shader const& shader, vk::Format colorFormat, vk::Format depthFormat)
 {
 	createDescriptorSetLayout(context);
 
@@ -45,6 +45,15 @@ GraphicsPipeline::GraphicsPipeline(VulkanContext const& context, Shader const& s
 	{
 		.rasterizationSamples = vk::SampleCountFlagBits::e1,
 		.sampleShadingEnable = vk::False
+	};
+
+	vk::PipelineDepthStencilStateCreateInfo depthStencil
+	{
+		.depthTestEnable = vk::True,
+		.depthWriteEnable = vk::True,
+		.depthCompareOp = vk::CompareOp::eLess, // Closer fragments win; the buffer is cleared to 1.0.
+		.depthBoundsTestEnable = vk::False,
+		.stencilTestEnable = vk::False
 	};
 
 	vk::PipelineColorBlendAttachmentState colorBlendAttachment
@@ -88,6 +97,7 @@ GraphicsPipeline::GraphicsPipeline(VulkanContext const& context, Shader const& s
 			.pViewportState = &viewportState,
 			.pRasterizationState = &rasterizer,
 			.pMultisampleState = &multisampling,
+			.pDepthStencilState = &depthStencil,
 			.pColorBlendState = &colorBlending,
 			.pDynamicState = &dynamicState,
 			.layout = pipelineLayout,
@@ -95,7 +105,8 @@ GraphicsPipeline::GraphicsPipeline(VulkanContext const& context, Shader const& s
 		},
 		{
 			.colorAttachmentCount = 1,
-			.pColorAttachmentFormats = &colorFormat
+			.pColorAttachmentFormats = &colorFormat,
+			.depthAttachmentFormat = depthFormat
 		}
 	};
 

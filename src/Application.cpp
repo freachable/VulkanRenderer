@@ -46,6 +46,11 @@ Application::Application()
 	, renderContext(createRenderContext(vulkanContext, window))
 	, renderer(vulkanContext, renderContext)
 {
+	// The renderer only gets a const RenderContext, so the callback is wired up here.
+	renderContext.setOnSwapchainRecreated([this](Swapchain const& swapchain)
+	{
+		renderer.onSwapchainRecreated(swapchain);
+	});
 }
 
 void Application::run()

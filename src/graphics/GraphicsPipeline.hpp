@@ -7,7 +7,7 @@
 class GraphicsPipeline
 {
 public:
-	GraphicsPipeline(VulkanContext const& context, Shader const& shader, vk::Format colorFormat);
+	GraphicsPipeline(VulkanContext const& context, Shader const& shader, vk::Format colorFormat, vk::Format depthFormat);
 
 	GraphicsPipeline(GraphicsPipeline const&) = delete;
 	GraphicsPipeline& operator=(GraphicsPipeline const&) = delete;

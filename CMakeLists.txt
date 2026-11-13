@@ -98,7 +98,9 @@ add_executable(${PROJECT_NAME}
   src/graphics/Shader.cpp
   src/graphics/GraphicsPipeline.cpp
   src/graphics/Buffer.cpp
+  src/graphics/Image.cpp
   src/graphics/Texture.cpp
+  src/graphics/DepthBuffer.cpp
   src/graphics/Command.cpp
   src/graphics/FrameData.cpp
   src/graphics/RenderContext.cpp

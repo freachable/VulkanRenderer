@@ -1,6 +1,7 @@
 #include "Texture.hpp"
 
 #include "Buffer.hpp"
+#include "Image.hpp"
 
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>
@@ -30,7 +31,7 @@ void Texture::createTextureImage(VulkanContext const& context, vk::raii::Command
 
 	stbi_image_free(pixels);
 
-	std::tie(textureImage, textureImageMemory) = createImage(
+	std::tie(textureImage, textureImageMemory) = ImageUtils::createImage(
 		context,
 	    texWidth,
 	    texHeight,
@@ -48,38 +49,6 @@ void Texture::createTextureImage(VulkanContext const& context, vk::raii::Command
 	transitionImageLayout(commandBuffer, vk::ImageLayout::eTransferDstOptimal, vk::ImageLayout::eShaderReadOnlyOptimal);
 
 	command.endSingleTimeCommands(std::move(commandBuffer));
-}
-
-std::pair<vk::raii::Image, vk::raii::DeviceMemory> Texture::createImage(
-    VulkanContext const& context, uint32_t width, uint32_t height, vk::Format format, vk::ImageTiling tiling,
-    vk::ImageUsageFlags usage, vk::MemoryPropertyFlags properties)
-{
-	vk::ImageCreateInfo imageInfo
-	{
-		.imageType   = vk::ImageType::e2D,
-	    .format      = format,
-	    .extent      = { width, height, 1 },
-	    .mipLevels   = 1,
-	    .arrayLayers = 1,
-	    .samples     = vk::SampleCountFlagBits::e1,
-	    .tiling      = tiling,
-	    .usage       = usage,
-	    .sharingMode = vk::SharingMode::eExclusive
-	};
-
-	vk::raii::Image image = vk::raii::Image(context.getDevice(), imageInfo);
-
-	vk::MemoryRequirements memRequirements = image.getMemoryRequirements();
-	vk::MemoryAllocateInfo allocInfo
-	{
-		.allocationSize  = memRequirements.size,
-	    .memoryTypeIndex = Buffer::findMemoryType(context, memRequirements.memoryTypeBits, properties)
-	};
-
-	vk::raii::DeviceMemory imageMemory = vk::raii::DeviceMemory(context.getDevice(), allocInfo);
-	image.bindMemory(imageMemory, 0);
-
-	return {std::move(image), std::move(imageMemory)};
 }
 
 void Texture::transitionImageLayout(vk::raii::CommandBuffer& commandBuffer, vk::ImageLayout oldLayout, vk::ImageLayout newLayout)
@@ -143,20 +112,5 @@ void Texture::copyBufferToImage(vk::raii::CommandBuffer& commandBuffer, Buffer c
 
 void Texture::createTextureImageView(VulkanContext const& context)
 {
-	vk::ImageViewCreateInfo viewInfo
-	{
-		.image            = textureImage,
-		.viewType         = vk::ImageViewType::e2D,
-		.format           = vk::Format::eR8G8B8A8Srgb,
-		.subresourceRange =
-		{
-			.aspectMask     = vk::ImageAspectFlagBits::eColor,
-			.baseMipLevel   = 0,
-			.levelCount     = 1,
-			.baseArrayLayer = 0,
-			.layerCount     = 1
-		}
-	};
-
-	textureImageView = vk::raii::ImageView(context.getDevice(), viewInfo);
+	textureImageView = ImageUtils::createImageView(context, *textureImage, vk::Format::eR8G8B8A8Srgb, vk::ImageAspectFlagBits::eColor);
 }

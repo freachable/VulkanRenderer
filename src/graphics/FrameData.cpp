@@ -36,7 +36,8 @@ namespace
 			.imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal
 		};
 
-		std::array<vk::WriteDescriptorSet, 2> descriptorWrites{ 
+		std::array<vk::WriteDescriptorSet, 2> descriptorWrites
+		{ 
 			{ 
 				{ 
 					.dstSet = descriptorSet,
