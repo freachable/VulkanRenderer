@@ -5,6 +5,7 @@
 #include "graphics/vulkan/RenderContext.hpp"
 #include "graphics/renderer/Renderer.hpp"
 #include "platform/Window.hpp"
+#include "scene/Camera.hpp"
 
 class Application
 {
@@ -33,4 +34,5 @@ private:
 	VulkanContext vulkanContext;
 	RenderContext renderContext;
 	Renderer      renderer;
+	Camera        camera;
 };

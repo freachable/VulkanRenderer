@@ -97,6 +97,8 @@ add_executable(${PROJECT_NAME}
 
   src/platform/Window.cpp
 
+  src/scene/Camera.cpp
+
   src/assets/AssetPaths.cpp
   src/assets/ObjLoader.cpp
   src/assets/ImageLoader.cpp

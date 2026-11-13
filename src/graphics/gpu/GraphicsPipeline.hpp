@@ -10,8 +10,6 @@
 struct GraphicsPipelineConfig
 {
 	vk::Format colorFormat = vk::Format::eUndefined;
-
-	// eUndefined renders without a depth attachment and turns the depth test off.
 	vk::Format depthFormat = vk::Format::eUndefined;
 
 	std::span<vk::DescriptorSetLayout const>             descriptorSetLayouts;

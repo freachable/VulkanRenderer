@@ -5,8 +5,12 @@
 #include <cstdint>
 #include <span>
 
+#include <glm/glm.hpp>
+
 // Forward declaration, so GLFW stays out of every file that includes this header.
 struct GLFWwindow;
+
+enum class Key { W, A, S, D, Q, E };
 
 struct WindowConfig
 {
@@ -49,9 +53,24 @@ public:
 	// Creates a surface for this window. The caller owns the returned surface.
 	VkSurfaceKHR createSurface(VkInstance instance) const;
 
+	bool isKeyDown(Key key) const;
+	bool isRightMouseDown() const;
+
+	// Hides the cursor and keeps it in the window. Calling it with the current state does nothing.
+	void setCursorCaptured(bool captured);
+
+	// Returns how far the mouse moved since the last call, in screen pixels, then resets it.
+	glm::vec2 consumeMouseDelta();
+
 private:
 	static void framebufferResizeCallback(GLFWwindow* handle, int width, int height);
+	static void cursorPosCallback(GLFWwindow* handle, double x, double y);
 
 	GLFWwindow* handle = nullptr;
 	bool framebufferResized = false;
+
+	glm::dvec2 lastCursorPos{};
+	bool       hasLastCursorPos = false;
+	bool       cursorCaptured   = false;
+	glm::vec2  mouseDelta{};
 };

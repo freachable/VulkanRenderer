@@ -14,11 +14,12 @@
 
 namespace
 {
-	// The helpers below build one member each for the constructor's initializer list.
-	// They return by value; for the non-movable types this relies on C++17 guaranteed copy elision.
-
-	GraphicsPipeline createGraphicsPipeline(VulkanContext const& context, vk::DescriptorSetLayout descriptorSetLayout,
-	                                        vk::Format colorFormat, vk::Format depthFormat)
+	GraphicsPipeline createGraphicsPipeline(
+		VulkanContext const& context, 
+		vk::DescriptorSetLayout descriptorSetLayout,
+	    vk::Format colorFormat, 
+		vk::Format depthFormat
+	)
 	{
 		Shader shader(context, AssetPaths::getShader("shader"),
 		{
@@ -61,12 +62,14 @@ namespace
 		return vk::raii::Sampler(context.getDevice(), samplerInfo);
 	}
 
-	std::vector<FrameResources> createFrames(VulkanContext const& context,
-	                                         vk::raii::DescriptorPool const& descriptorPool,
-	                                         vk::raii::DescriptorSetLayout const& descriptorSetLayout,
-	                                         uint32_t framesInFlight,
-	                                         Texture const& texture,
-	                                         vk::raii::Sampler const& textureSampler)
+	std::vector<FrameResources> createFrames(
+		VulkanContext const& context,
+	    vk::raii::DescriptorPool const& descriptorPool,
+	    vk::raii::DescriptorSetLayout const& descriptorSetLayout,
+	    uint32_t framesInFlight,
+	    Texture const& texture,
+	    vk::raii::Sampler const& textureSampler
+	)
 	{
 		std::vector<FrameResources> frames;
 		frames.reserve(framesInFlight);
@@ -89,7 +92,6 @@ Renderer::Renderer(VulkanContext const& context, RenderContext const& renderCont
 	, textureSampler(createTextureSampler(context))
 	, descriptorPool(FrameResources::createDescriptorPool(context, renderContext.getFramesInFlight()))
 	, frames(createFrames(context, descriptorPool, descriptorSetLayout, renderContext.getFramesInFlight(), texture, textureSampler))
-	, startTime(std::chrono::steady_clock::now())
 {
 }
 
@@ -98,12 +100,11 @@ void Renderer::onSwapchainRecreated(Swapchain const& swapchain)
 	depthBuffer.recreate(swapchain.getExtent());
 }
 
-void Renderer::draw(Frame const& frame)
+void Renderer::draw(Frame const& frame, Camera const& camera)
 {
 	FrameResources& frameResources = frames[frame.frameIndex];
 
-	// Safe to write: beginFrame waited until the GPU was done with this frame slot.
-	updateUniformBuffer(frameResources, frame.extent);
+	updateUniformBuffer(frameResources, frame.extent, camera);
 
 	// beginFrame has begun the command buffer and put the image in eColorAttachmentOptimal;
 	// endFrame transitions it for presenting and ends the command buffer.
@@ -171,14 +172,12 @@ void Renderer::draw(Frame const& frame)
 	commandBuffer.endRendering();
 }
 
-void Renderer::updateUniformBuffer(FrameResources& frameResources, vk::Extent2D extent)
+void Renderer::updateUniformBuffer(FrameResources& frameResources, vk::Extent2D extent, Camera const& camera)
 {
-	const float time = std::chrono::duration<float>(std::chrono::steady_clock::now() - startTime).count();
-
 	UniformBufferObject ubo{};
-	ubo.model = rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
-	ubo.view = lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
-	ubo.proj = glm::perspective(glm::radians(45.0f), static_cast<float>(extent.width) / static_cast<float>(extent.height), 0.1f, 10.0f);
+	ubo.model = glm::mat4(1.0f);
+	ubo.view  = camera.getView();
+	ubo.proj  = camera.getProjection(static_cast<float>(extent.width) / static_cast<float>(extent.height));
 
 	std::memcpy(frameResources.uniformBuffer.getMapped(), &ubo, sizeof(ubo));
 }

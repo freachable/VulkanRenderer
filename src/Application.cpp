@@ -1,6 +1,7 @@
 #include "Application.hpp"
 
 #include <array>
+#include <chrono>
 #include <cstdint>
 #include <optional>
 
@@ -55,9 +56,17 @@ Application::Application()
 
 void Application::run()
 {
+	auto lastTime = std::chrono::steady_clock::now();
+
 	while (!window.shouldClose())
 	{
 		window.pollEvents();
+
+		auto const now = std::chrono::steady_clock::now();
+		float const dt = std::chrono::duration<float>(now - lastTime).count();
+		lastTime = now;
+
+		camera.update(window, dt);
 		drawFrame();
 	}
 
@@ -77,7 +86,7 @@ void Application::drawFrame()
 		return;
 	}
 
-	renderer.draw(*frame);
+	renderer.draw(*frame, camera);
 
 	renderContext.endFrame(*frame);
 }
