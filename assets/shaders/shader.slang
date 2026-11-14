@@ -8,7 +8,8 @@ struct UniformBuffer {
     float4x4 model;
     float4x4 view;
     float4x4 proj;
-    float3   cameraPos; // World space.
+    float3   cameraPos;      // World space.
+    float4   viewportParams; // x = width, y = height (pixels), z = focal_x, w = focal_y (pixels).
 };
 ConstantBuffer<UniformBuffer> ubo;
 

@@ -174,11 +174,16 @@ void Renderer::draw(Frame const& frame, Camera const& camera)
 
 void Renderer::updateUniformBuffer(FrameResources& frameResources, vk::Extent2D extent, Camera const& camera)
 {
+	float const width  = static_cast<float>(extent.width);
+	float const height = static_cast<float>(extent.height);
+
 	UniformBufferObject ubo{};
-	ubo.model = glm::mat4(1.0f);
-	ubo.view  = camera.getView();
-	ubo.proj  = camera.getProjection(static_cast<float>(extent.width) / static_cast<float>(extent.height));
+	ubo.model     = glm::mat4(1.0f);
+	ubo.view      = camera.getView();
+	ubo.proj      = camera.getProjection(width / height);
 	ubo.cameraPos = camera.getPosition();
+	// Focal length in pixels: the perspective matrix holds 1 / tan(fov / 2) on its diagonal.
+	ubo.viewportParams = { width, height, ubo.proj[0][0] * width * 0.5f, ubo.proj[1][1] * height * 0.5f };
 
 	std::memcpy(frameResources.uniformBuffer.getMapped(), &ubo, sizeof(ubo));
 }
