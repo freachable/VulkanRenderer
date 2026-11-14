@@ -178,6 +178,7 @@ void Renderer::updateUniformBuffer(FrameResources& frameResources, vk::Extent2D 
 	ubo.model = glm::mat4(1.0f);
 	ubo.view  = camera.getView();
 	ubo.proj  = camera.getProjection(static_cast<float>(extent.width) / static_cast<float>(extent.height));
+	ubo.cameraPos = camera.getPosition();
 
 	std::memcpy(frameResources.uniformBuffer.getMapped(), &ubo, sizeof(ubo));
 }

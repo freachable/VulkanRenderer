@@ -13,6 +13,7 @@ struct UniformBufferObject
 	alignas(16) glm::mat4 model;
 	alignas(16) glm::mat4 view;
 	alignas(16) glm::mat4 proj;
+	alignas(16) glm::vec3 cameraPos; // World space.
 };
 
 // The renderer's resources for one frame in flight: one per RenderContext frame slot,
