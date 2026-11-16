@@ -5,9 +5,10 @@ p1_001 (GitHub #5): this module and docs/map-data-format.md define the format.
 The format is described in docs/map-data-format.md. Only the standard library
 is used here, so the synthetic sample generator runs without extra packages.
 
-World coordinates: x points east, y up, z south. The map is centered on the
-origin and spans [-size_x/2, size_x/2] x [-size_z/2, size_z/2] meters.
-Image row 0 is the northern edge (z = -size_z/2), column 0 the western edge.
+World coordinates (Z-up, right-handed, as in ENU): x points east, y north,
+z up. The map is centered on the origin and spans [-size_x/2, size_x/2] x
+[-size_y/2, size_y/2] meters. 2D points are (x, y).
+Image row 0 is the northern edge (y = +size_y/2), column 0 the western edge.
 """
 
 from __future__ import annotations
@@ -68,11 +69,11 @@ def write_rgb_png(path: Path, width: int, height: int, pixels: bytearray) -> Non
 # ---------------------------------------------------------------------------
 
 def signed_area(polygon: Sequence[Point]) -> float:
-    """Shoelace area in the (x, z) plane."""
+    """Shoelace area in the (x, y) plane, positive when counter-clockwise seen from above."""
     area = 0.0
-    for i, (x0, z0) in enumerate(polygon):
-        x1, z1 = polygon[(i + 1) % len(polygon)]
-        area += x0 * z1 - x1 * z0
+    for i, (x0, y0) in enumerate(polygon):
+        x1, y1 = polygon[(i + 1) % len(polygon)]
+        area += x0 * y1 - x1 * y0
     return area * 0.5
 
 
@@ -139,7 +140,7 @@ def make_building(footprint: Sequence[Point], height: float, color: Sequence[flo
     if len(footprint) < 3 or not triangles:
         return None
     return {
-        "footprint": [[round(x, 3), round(z, 3)] for x, z in footprint],
+        "footprint": [[round(x, 3), round(y, 3)] for x, y in footprint],
         "triangles": triangles,
         "height": round(float(height), 3),
         "color": [round(float(c), 4) for c in color],
@@ -151,7 +152,7 @@ def make_foliage_area(polygon: Sequence[Point], kind: str) -> dict | None:
     polygon = clean_polygon(polygon)
     if len(polygon) < 3:
         return None
-    return {"type": kind, "polygon": [[round(x, 3), round(z, 3)] for x, z in polygon]}
+    return {"type": kind, "polygon": [[round(x, 3), round(y, 3)] for x, y in polygon]}
 
 
 # p1_001: map.json manifest plus the JSON files it points to.

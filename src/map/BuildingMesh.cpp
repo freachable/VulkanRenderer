@@ -20,12 +20,12 @@ namespace
 		return a < b ? Edge{ a, b } : Edge{ b, a };
 	}
 
-	// > 0 when (a, b, c) is counter-clockwise seen from +y, i.e. its normal points up.
+	// > 0 when (a, b, c) is counter-clockwise seen from +z, i.e. its normal points up.
 	float upwardArea(glm::vec2 a, glm::vec2 b, glm::vec2 c)
 	{
 		glm::vec2 const u = b - a;
 		glm::vec2 const v = c - a;
-		return u.y * v.x - u.x * v.y;
+		return u.x * v.y - u.y * v.x;
 	}
 
 	// Valid triangles of the building, all wound counter-clockwise seen from above.
@@ -116,8 +116,8 @@ BuildingMesh buildBuildingMesh(MapData const& map)
 		BuildingDraw draw
 		{
 			.firstVertex = static_cast<uint32_t>(mesh.vertices.size()),
-			.boundsMin   = { boundsMin.x, baseHeight, boundsMin.y },
-			.boundsMax   = { boundsMax.x, roofHeight, boundsMax.y }
+			.boundsMin   = { boundsMin.x, boundsMin.y, baseHeight },
+			.boundsMax   = { boundsMax.x, boundsMax.y, roofHeight }
 		};
 
 		for (auto const& tri : triangles)

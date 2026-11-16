@@ -184,16 +184,17 @@ MapData loadMapData(std::filesystem::path const& directory)
 	return map;
 }
 
-glm::vec2 mapWorldToUv(MapData const& map, glm::vec2 xz)
+glm::vec2 mapWorldToUv(MapData const& map, glm::vec2 xy)
 {
-	return (xz + map.size * 0.5f) / map.size;
+	// p1_001: u grows east, v grows south.
+	return { (xy.x + map.size.x * 0.5f) / map.size.x, (map.size.y * 0.5f - xy.y) / map.size.y };
 }
 
-float sampleTerrainHeight(MapData const& map, glm::vec2 xz)
+float sampleTerrainHeight(MapData const& map, glm::vec2 xy)
 {
 	HeightField const& field = map.heightField;
 
-	glm::vec2 const uv = glm::clamp(mapWorldToUv(map, xz), glm::vec2(0.0f), glm::vec2(1.0f));
+	glm::vec2 const uv = glm::clamp(mapWorldToUv(map, xy), glm::vec2(0.0f), glm::vec2(1.0f));
 	float const fx = uv.x * static_cast<float>(field.width - 1);
 	float const fy = uv.y * static_cast<float>(field.height - 1);
 

@@ -20,11 +20,11 @@ Produce one with:
 
 ## World space
 
-- Units are meters. **x points east, y up, z south** (right-handed).
-- The map is centered on the origin: x in `[-size[0]/2, size[0]/2]`, z in `[-size[1]/2, size[1]/2]`.
-- 2D points are written as `[x, z]`.
-- Both images cover exactly the map area. Image row 0 is the **northern** edge (z = -size[1]/2), column 0 the western edge.
-  Texture coordinates: `u = (x + size[0]/2) / size[0]`, `v = (z + size[1]/2) / size[1]`.
+- Units are meters. **Z-up, right-handed: x points east, y north, z up** (ENU, as in GIS and the camera).
+- The map is centered on the origin: x in `[-size[0]/2, size[0]/2]`, y in `[-size[1]/2, size[1]/2]`. Terrain heights are z.
+- 2D points are written as `[x, y]`.
+- Both images cover exactly the map area. Image row 0 is the **northern** edge (y = +size[1]/2), column 0 the western edge.
+  Texture coordinates: `u = (x + size[0]/2) / size[0]`, `v = (size[1]/2 - y) / size[1]`.
 
 ## map.json
 
@@ -45,7 +45,7 @@ Produce one with:
 |---|---|
 | `version` | Format version, currently 1. Readers reject other versions; bump it on incompatible changes |
 | `name` | Optional, defaults to the folder name |
-| `size` | Map extent in meters along x and z |
+| `size` | Map extent in meters along x and y |
 | `heightRange` | Heights in meters for heightmap value 0 and 65535 |
 | `buildings`, `foliage` | Optional |
 
@@ -61,7 +61,7 @@ RGB(A) PNG/JPG in sRGB, any size. Sampled with clamp-to-edge.
 
 ```json
 { "buildings": [
-  { "footprint": [[x, z], ...], "triangles": [0, 1, 2, ...], "height": 18.5, "color": [0.7, 0.7, 0.72] }
+  { "footprint": [[x, y], ...], "triangles": [0, 1, 2, ...], "height": 18.5, "color": [0.7, 0.7, 0.72] }
 ] }
 ```
 
@@ -80,7 +80,7 @@ Walls are generated for every triangle edge used by exactly one triangle (the ou
 { "areas": [ { "type": "park", "polygon": [[x, z], ...] } ] }
 ```
 
-`polygon` is a simple outline in world (x, z). `type` is informational (`park`, `forest`, `grass`, ...).
+`polygon` is a simple outline in world (x, y). `type` is informational (`park`, `forest`, `grass`, ...).
 
 ## Open questions
 

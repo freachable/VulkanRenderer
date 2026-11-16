@@ -43,8 +43,8 @@ struct TerrainChunk
 	glm::vec3 boundsMax{ 0.0f };
 };
 
-// One regular grid over the whole map, displaced by the heightmap. Triangles are counter-clockwise
-// seen from above.
+// One regular grid over the whole map, displaced along z by the heightmap. Triangles are counter-clockwise
+// seen from above (+z).
 struct TerrainMesh
 {
 	std::vector<TerrainVertex> vertices;

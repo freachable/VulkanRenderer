@@ -15,9 +15,9 @@
 // Triangles are not indexed, since the wall flag belongs to a triangle's edge, not to a shared vertex.
 struct BuildingVertex
 {
-	glm::vec2 footprint;   // (x, z)
-	float     baseHeight;  // World y of the wall bottoms (slightly below the terrain).
-	float     roofHeight;  // World y of the roof.
+	glm::vec2 footprint;   // (x, y)
+	float     baseHeight;  // World z of the wall bottoms (slightly below the terrain).
+	float     roofHeight;  // World z of the roof.
 	glm::vec3 color;       // Linear RGB
 	float     wallMask;    // 1 if the edge from this vertex to the next one of its triangle is on the outline.
 

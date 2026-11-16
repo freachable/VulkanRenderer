@@ -105,18 +105,18 @@ def main() -> None:
     west, south, east, north = args.bbox
     bbox = (west, south, east, north)  # osmnx 2.x order: left, bottom, right, top
 
-    # Local metric frame: UTM, centered on the bbox, x east, z south
+    # p1_001: local metric frame, UTM centered on the bbox: x east, y north (z up is the height)
     import geopandas as gpd
     area = gpd.GeoDataFrame(geometry=[box(west, south, east, north)], crs="EPSG:4326")
     area_utm = ox.projection.project_gdf(area)
     crs = area_utm.crs
     minx, miny, maxx, maxy = area_utm.total_bounds
     cx, cy = (minx + maxx) / 2, (miny + maxy) / 2
-    size_x, size_z = maxx - minx, maxy - miny
+    size_x, size_y = maxx - minx, maxy - miny
     clip = box(minx, miny, maxx, maxy)
 
     def to_local(points):
-        return [(x - cx, -(y - cy)) for x, y in points]
+        return [(x - cx, y - cy) for x, y in points]
 
     print("downloading buildings...")
     buildings = []
@@ -171,7 +171,7 @@ def main() -> None:
 
     # Albedo
     res = args.albedo_resolution
-    scale_x, scale_y = res / size_x, res / size_z
+    scale_x, scale_y = res / size_x, res / size_y
     image = Image.new("RGB", (res, res), COLORS["ground"])
     draw = ImageDraw.Draw(image)
 
@@ -186,7 +186,7 @@ def main() -> None:
         for part in getattr(line, "geoms", [line]):
             draw.line(to_pixels(part.coords), fill=COLORS["road"], width=max(1, round(width * scale_x)), joint="curve")
     for building in buildings:
-        coords = [(x + cx, cy - z) for x, z in building["footprint"]]
+        coords = [(x + cx, y + cy) for x, y in building["footprint"]]
         draw.polygon(to_pixels(coords), fill=COLORS["building"])
 
     args.out.mkdir(parents=True, exist_ok=True)
@@ -215,8 +215,8 @@ def main() -> None:
         height_max = height_min + 1
     mapformat.write_heightmap_png(args.out / "heightmap.png", heights.tolist(), height_min, height_max)
 
-    mapformat.write_map(args.out, args.out.name, (size_x, size_z), (height_min, height_max), buildings, foliage)
-    print(f"wrote {args.out}: {size_x:.0f} x {size_z:.0f} m, {len(buildings)} buildings, {len(foliage)} foliage areas")
+    mapformat.write_map(args.out, args.out.name, (size_x, size_y), (height_min, height_max), buildings, foliage)
+    print(f"wrote {args.out}: {size_x:.0f} x {size_y:.0f} m, {len(buildings)} buildings, {len(foliage)} foliage areas")
 
 
 if __name__ == "__main__":
