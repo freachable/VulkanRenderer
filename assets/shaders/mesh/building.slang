@@ -1,3 +1,4 @@
+// p1_008 (GitHub #12)
 // Buildings: the vertex buffer holds flat footprint triangles; the geometry shader extrudes them
 // into a roof plus one wall quad per outline edge. Faces are counter-clockwise seen from outside.
 

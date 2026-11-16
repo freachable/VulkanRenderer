@@ -13,6 +13,7 @@
 // Input of the building geometry shader: the footprint triangles, flat on the ground. The geometry
 // shader emits each triangle at roof height plus a wall quad for every edge on the outline.
 // Triangles are not indexed, since the wall flag belongs to a triangle's edge, not to a shared vertex.
+// p1_008 (GitHub #12): input of the building extrusion geometry shader.
 struct BuildingVertex
 {
 	glm::vec2 footprint;   // (x, y)

@@ -10,6 +10,7 @@
 
 #include <glm/glm.hpp>
 
+// p1_007 (GitHub #11): terrain mesh, split into chunks for culling.
 struct TerrainVertex
 {
 	glm::vec3 position;

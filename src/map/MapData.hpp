@@ -47,6 +47,7 @@ struct MapData
 	std::vector<FoliageArea>  foliageAreas;
 };
 
+// p1_006 (GitHub #10): map loader.
 // Loads <directory>/map.json and the files it points to. Throws std::runtime_error on bad input.
 MapData loadMapData(std::filesystem::path const& directory);
 

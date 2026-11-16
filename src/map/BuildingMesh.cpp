@@ -1,3 +1,4 @@
+// p1_008 (GitHub #12): building placement on the terrain and wall detection.
 #include "BuildingMesh.hpp"
 
 #include <algorithm>

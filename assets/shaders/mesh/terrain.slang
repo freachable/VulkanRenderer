@@ -1,3 +1,4 @@
+// p1_007 (GitHub #11)
 // Terrain: the heightmap grid, textured with the top-down albedo map.
 
 struct SceneUniforms

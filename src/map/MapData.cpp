@@ -146,6 +146,7 @@ namespace
 	}
 }
 
+// p1_006 (GitHub #10): map loader and terrain height sampling.
 MapData loadMapData(std::filesystem::path const& directory)
 {
 	json const manifest = readJson(directory / "map.json");

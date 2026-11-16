@@ -1,3 +1,4 @@
+// p1_007 (GitHub #11): terrain mesh from the heightmap.
 #include "TerrainMesh.hpp"
 
 #include <algorithm>

@@ -1,5 +1,7 @@
 #pragma once
 
+// p1_009 (GitHub #13): view frustum for CPU culling of terrain chunks and buildings.
+
 #include <array>
 
 #include <glm/glm.hpp>

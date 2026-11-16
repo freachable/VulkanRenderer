@@ -160,7 +160,11 @@ target_compile_definitions(${PROJECT_NAME} PRIVATE
 # Shaders
 # ---------------------------------------------------------------------------
 function(add_slang_shader_target TARGET)
-  cmake_parse_arguments(SHADER "" "OUTPUT" "SOURCES" ${ARGN})
+  cmake_parse_arguments(SHADER "" "OUTPUT" "SOURCES;ENTRIES" ${ARGN})
+  if(NOT SHADER_ENTRIES)
+    set(SHADER_ENTRIES vertMain fragMain)
+  endif()
+  list(TRANSFORM SHADER_ENTRIES PREPEND "-entry;")
 
   if(NOT SHADER_SOURCES)
     message(FATAL_ERROR "No Slang shader sources provided")
@@ -173,8 +177,7 @@ function(add_slang_shader_target TARGET)
     COMMAND "${CMAKE_COMMAND}" -E make_directory "${SHADER_OUTPUT_DIR}"
     COMMAND "${SLANGC_EXECUTABLE}"
             ${SHADER_SOURCES}
-            -entry vertMain
-            -entry fragMain
+            ${SHADER_ENTRIES}
             -o "${SHADER_OUTPUT}"
     DEPENDS ${SHADER_SOURCES}
     WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
@@ -190,3 +193,42 @@ add_slang_shader_target(VulkanRendererShaders
   OUTPUT  "${SHADER_SPV}"
 )
 add_dependencies(${PROJECT_NAME} VulkanRendererShaders)
+
+# p1_007, p1_008: map shaders, loaded as AssetPaths::getShader("mesh/terrain") and "mesh/building".
+add_slang_shader_target(MapTerrainShaders
+  SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/assets/shaders/mesh/terrain.slang"
+  OUTPUT  "${SHADER_DIR}/mesh/terrain.spv"
+)
+add_slang_shader_target(MapBuildingShaders
+  SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/assets/shaders/mesh/building.slang"
+  OUTPUT  "${SHADER_DIR}/mesh/building.spv"
+  ENTRIES vertMain geomMain fragMain
+)
+add_dependencies(${PROJECT_NAME} MapTerrainShaders MapBuildingShaders)
+
+# ---------------------------------------------------------------------------
+# p1_006, p1_007, p1_008: CPU checks of the map code, no window or GPU needed.
+# Run with `ctest --test-dir build/windows-debug` or bin/MapCheck [map directory].
+# ---------------------------------------------------------------------------
+add_executable(MapCheck
+  tests/MapCheck.cpp
+  src/map/MapData.cpp
+  src/map/TerrainMesh.cpp
+  src/map/BuildingMesh.cpp
+  src/assets/ImageLoader.cpp
+)
+target_include_directories(MapCheck PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/src" ${Stb_INCLUDE_DIR})
+set_target_properties(MapCheck PROPERTIES
+  CXX_STANDARD 20
+  CXX_STANDARD_REQUIRED ON
+  RUNTIME_OUTPUT_DIRECTORY "${RUNTIME_DIR}"
+)
+target_link_libraries(MapCheck PRIVATE Vulkan::cppm glm::glm nlohmann_json::nlohmann_json)
+target_compile_definitions(MapCheck PRIVATE
+  "VR_ASSET_DIR=\"${CMAKE_CURRENT_SOURCE_DIR}/assets\""
+  GLM_FORCE_DEPTH_ZERO_TO_ONE
+  $<$<BOOL:${ENABLE_CPP20_MODULE}>:USE_CPP20_MODULES=1>
+)
+
+enable_testing()
+add_test(NAME MapCheck COMMAND MapCheck)
