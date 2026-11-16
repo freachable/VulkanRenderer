@@ -1,10 +1,11 @@
 #pragma once
 
-#include "graphics/Vulkan.hpp"
-#include "graphics/VulkanContext.hpp"
-#include "graphics/RenderContext.hpp"
-#include "graphics/Renderer.hpp"
+#include "graphics/vulkan/Vulkan.hpp"
+#include "graphics/vulkan/VulkanContext.hpp"
+#include "graphics/vulkan/RenderContext.hpp"
+#include "graphics/renderer/Renderer.hpp"
 #include "platform/Window.hpp"
+#include "scene/Camera.hpp"
 
 class Application
 {
@@ -33,4 +34,5 @@ private:
 	VulkanContext vulkanContext;
 	RenderContext renderContext;
 	Renderer      renderer;
+	Camera        camera;
 };

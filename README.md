@@ -19,7 +19,12 @@ cmake --build --preset windows-debug
 
 ## Repository layout
 
-See [docs/structure.md](docs/structure.md).
+```
+assets/       runtime data: shaders/, textures/, meshes/, maps/<name>/
+src/          C++: platform/, scene/, assets/, graphics/{vulkan,gpu,renderer}/, map/
+tools/        offline Python scripts for map data
+docs/         map-data-format.md
+```
 
 ## Map data
 

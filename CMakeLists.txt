@@ -86,7 +86,8 @@ if(IS_MULTI_CONFIG)
 else()
   set(RUNTIME_DIR "${CMAKE_BINARY_DIR}/bin")
 endif()
-set(SHADER_SPV "${RUNTIME_DIR}/shaders/slang.spv")
+set(SHADER_DIR "${RUNTIME_DIR}/shaders")
+set(SHADER_SPV "${SHADER_DIR}/shader.spv")
 
 # ---------------------------------------------------------------------------
 # Application
@@ -94,20 +95,34 @@ set(SHADER_SPV "${RUNTIME_DIR}/shaders/slang.spv")
 add_executable(${PROJECT_NAME}
   src/main.cpp
   src/Application.cpp
-  src/graphics/VulkanContext.cpp
-  src/graphics/Swapchain.cpp
-  src/graphics/Shader.cpp
-  src/graphics/GraphicsPipeline.cpp
-  src/graphics/Buffer.cpp
-  src/graphics/Texture.cpp
-  src/graphics/Command.cpp
-  src/graphics/FrameData.cpp
-  src/graphics/RenderContext.cpp
-  src/graphics/Renderer.cpp
+
+  src/platform/Window.cpp
+
+  src/scene/Camera.cpp
+
+  src/assets/AssetPaths.cpp
+  src/assets/ObjLoader.cpp
+  src/assets/ImageLoader.cpp
+
+  src/graphics/vulkan/VulkanContext.cpp
+  src/graphics/vulkan/Swapchain.cpp
+  src/graphics/vulkan/RenderContext.cpp
+  src/graphics/vulkan/Barriers.cpp
+
+  src/graphics/gpu/Buffer.cpp
+  src/graphics/gpu/Image.cpp
+  src/graphics/gpu/Texture.cpp
+  src/graphics/gpu/DepthBuffer.cpp
+  src/graphics/gpu/Mesh.cpp
+  src/graphics/gpu/Shader.cpp
+  src/graphics/gpu/GraphicsPipeline.cpp
+
+  src/graphics/renderer/Renderer.cpp
+  src/graphics/renderer/FrameResources.cpp
+
   src/map/MapData.cpp
   src/map/TerrainMesh.cpp
   src/map/BuildingMesh.cpp
-  src/platform/Window.cpp
 )
 target_include_directories(${PROJECT_NAME} PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/src")
 
@@ -130,9 +145,13 @@ target_compile_definitions(${PROJECT_NAME} PRIVATE
   # Treat VK_ERROR_OUT_OF_DATE_KHR as a success code
   VULKAN_HPP_HANDLE_ERROR_OUT_OF_DATE_AS_SUCCESS
   "VR_VALIDATION_LAYER_DIR=\"${VALIDATION_LAYER_DIR}\""
-  "VR_SHADER_PATH=\"${SHADER_SPV}\""
-  "VR_TEXTURE_PATH=\"${CMAKE_CURRENT_SOURCE_DIR}/textures/texture.jpg\""
+  "VR_ASSET_DIR=\"${CMAKE_CURRENT_SOURCE_DIR}/assets\""
+  "VR_SHADER_DIR=\"${SHADER_DIR}\""
+
+  # Vulkan's clip-space depth is [0, 1], not OpenGL's [-1, 1]. Must be set before any glm include.
+  GLM_FORCE_DEPTH_ZERO_TO_ONE
   $<$<BOOL:${ENABLE_CPP20_MODULE}>:USE_CPP20_MODULES=1>
+
   # MSVC flags std::getenv as deprecated
   $<$<CXX_COMPILER_ID:MSVC>:_CRT_SECURE_NO_WARNINGS>
 )
@@ -167,7 +186,7 @@ function(add_slang_shader_target TARGET)
 endfunction()
 
 add_slang_shader_target(VulkanRendererShaders
-  SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/shaders/shader.slang"
+  SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/assets/shaders/shader.slang"
   OUTPUT  "${SHADER_SPV}"
 )
 add_dependencies(${PROJECT_NAME} VulkanRendererShaders)

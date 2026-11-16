@@ -47,13 +47,13 @@ Window::Window(WindowConfig const& config)
 	handle = glfwCreateWindow(static_cast<int>(config.width), static_cast<int>(config.height), config.title, nullptr, nullptr);
 	if (handle == nullptr)
 	{
-		// The destructor does not run when the constructor throws.
 		glfwTerminate();
 		throw std::runtime_error("failed to create window!");
 	}
 
 	glfwSetWindowUserPointer(handle, this);
 	glfwSetFramebufferSizeCallback(handle, framebufferResizeCallback);
+	glfwSetCursorPosCallback(handle, cursorPosCallback);
 }
 
 Window::~Window()
@@ -127,8 +127,63 @@ VkSurfaceKHR Window::createSurface(VkInstance instance) const
 	return surface;
 }
 
+bool Window::isKeyDown(Key key) const
+{
+	int glfwKey = GLFW_KEY_UNKNOWN;
+	switch (key)
+	{
+		case Key::W: glfwKey = GLFW_KEY_W; break;
+		case Key::A: glfwKey = GLFW_KEY_A; break;
+		case Key::S: glfwKey = GLFW_KEY_S; break;
+		case Key::D: glfwKey = GLFW_KEY_D; break;
+		case Key::Q: glfwKey = GLFW_KEY_Q; break;
+		case Key::E: glfwKey = GLFW_KEY_E; break;
+	}
+
+	return glfwGetKey(handle, glfwKey) == GLFW_PRESS;
+}
+
+bool Window::isRightMouseDown() const
+{
+	return glfwGetMouseButton(handle, GLFW_MOUSE_BUTTON_RIGHT) == GLFW_PRESS;
+}
+
+void Window::setCursorCaptured(bool captured)
+{
+	if (captured == cursorCaptured)
+	{
+		return;
+	}
+
+	cursorCaptured = captured;
+	glfwSetInputMode(handle, GLFW_CURSOR, captured ? GLFW_CURSOR_DISABLED : GLFW_CURSOR_NORMAL);
+
+	// Hiding or showing the cursor moves it; don't count that as mouse movement.
+	hasLastCursorPos = false;
+	mouseDelta = {};
+}
+
+glm::vec2 Window::consumeMouseDelta()
+{
+	glm::vec2 delta = mouseDelta;
+	mouseDelta = {};
+	return delta;
+}
+
 void Window::framebufferResizeCallback(GLFWwindow* handle, int /*width*/, int /*height*/)
 {
 	auto* window = static_cast<Window*>(glfwGetWindowUserPointer(handle));
 	window->framebufferResized = true;
+}
+
+void Window::cursorPosCallback(GLFWwindow* handle, double x, double y)
+{
+	auto* window = static_cast<Window*>(glfwGetWindowUserPointer(handle));
+	if (window->hasLastCursorPos)
+	{
+		window->mouseDelta += glm::vec2(x - window->lastCursorPos.x, y - window->lastCursorPos.y);
+	}
+
+	window->lastCursorPos    = { x, y };
+	window->hasLastCursorPos = true;
 }

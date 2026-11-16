@@ -84,3 +84,6 @@ devenv.local.yaml
 
 # Python
 __pycache__/
+
+# Wavefront meshes are assets, not object files
+!assets/**/*.obj

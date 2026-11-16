@@ -6,7 +6,7 @@
 #include <stdexcept>
 
 #include <nlohmann/json.hpp>
-#include <stb_image.h>  // The implementation is compiled in graphics/Texture.cpp.
+#include <stb_image.h>  // The implementation is compiled in assets/ImageLoader.cpp.
 
 namespace
 {
