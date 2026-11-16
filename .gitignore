@@ -84,6 +84,8 @@ devenv.local.yaml
 
 # Python
 __pycache__/
+# osmnx download cache (tools/osm_export.py)
+cache/
 
 # Wavefront meshes are assets, not object files
 !assets/**/*.obj

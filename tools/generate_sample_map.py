@@ -1,5 +1,7 @@
 """Generates a small synthetic map in the renderer's data format.
 
+p1_002 (GitHub #6): sample map generator.
+
 No real data and no extra packages needed: hilly terrain, a street grid,
 parks and random buildings (rectangles and L-shapes). Useful for working on
 the renderer before the OpenStreetMap pipeline (osm_export.py) is ready.
@@ -27,6 +29,7 @@ ROAD_WIDTH = 12.0
 PARK_PROBABILITY = 0.15
 
 
+# p1_002: rolling hills plus one big hill in the north-east.
 def terrain_height(x: float, y: float) -> float:
     rolling = 12.0 * math.sin(x / 170.0) * math.cos(y / 210.0) + 5.0 * math.sin((x - y) / 90.0)
     hill = 45.0 * math.exp(-((x - 260.0) ** 2 + (y - 240.0) ** 2) / (2 * 170.0 ** 2))  # north-east
@@ -58,6 +61,7 @@ def rotate(points, cx, cy, angle):
     return [(cx + (px - cx) * c - (py - cy) * s, cy + (px - cx) * s + (py - cy) * c) for px, py in points]
 
 
+# p1_002: buildings, concave L-shapes included to test triangulation and walls.
 def make_lot_building(rng: random.Random, x0: float, y0: float, size: float):
     """A rectangle or L-shape inside the square lot [x0, x0+size] x [y0, y0+size]."""
     margin = 4.0
@@ -87,6 +91,7 @@ def main() -> None:
     half = MAP_SIZE / 2
     blocks = int(MAP_SIZE // BLOCK) + 1
 
+    # p1_002: street grid with park blocks (foliage areas) and up to 4 buildings per block.
     # Pick park blocks
     parks = {(bx, by) for bx in range(blocks) for by in range(blocks) if rng.random() < PARK_PROBABILITY}
 
@@ -135,7 +140,7 @@ def main() -> None:
     height_min = math.floor(min(map(min, heights)))
     height_max = math.ceil(max(map(max, heights)))
 
-    # Albedo: ground, roads, parks, building footprints. Pixel row 0 is the northern edge.
+    # p1_002: albedo: ground, roads, parks, building footprints. Pixel row 0 is the northern edge.
     res = ALBEDO_RESOLUTION
     pixels = bytearray(res * res * 3)
     meters_per_pixel = MAP_SIZE / res

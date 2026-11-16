@@ -1,5 +1,7 @@
 """Exports a map area from OpenStreetMap into the renderer's data format.
 
+p1_003 (GitHub #7): OSM export script. Tested on Munich's old town (--bbox 11.570 48.134 11.580 48.140).
+
     pip install -r tools/requirements.txt
     python tools/osm_export.py --bbox 19.030 47.490 19.070 47.515 --out assets/maps/budapest
     python tools/osm_export.py --bbox ... --dem dem.tif --out assets/maps/budapest
@@ -19,6 +21,7 @@ from __future__ import annotations
 import argparse
 import math
 import random
+import time
 from pathlib import Path
 
 import mapformat
@@ -83,11 +86,25 @@ def parse_color(value, rng: random.Random):
     return (grey, grey, grey)
 
 
+# p1_003: the public Overpass server is often busy (502/504), so downloads are retried.
+def with_retries(download, what: str, attempts: int = 4):
+    for attempt in range(attempts):
+        try:
+            return download()
+        except Exception as error:
+            busy = any(code in str(error) for code in ("502", "503", "504", "429", "timed out"))
+            if not busy or attempt == attempts - 1:
+                raise
+            wait = 10 * 2 ** attempt
+            print(f"  Overpass busy while downloading {what}, retrying in {wait} s")
+            time.sleep(wait)
+
+
 def features(bbox, tags):
     try:
-        return ox.features_from_bbox(bbox, tags)
+        return with_retries(lambda: ox.features_from_bbox(bbox, tags), str(tags))
     except Exception as error:  # osmnx raises when nothing matches
-        print(f"  no features for {tags}: {error}")
+        print(f"  no features for {tags}: {str(error).splitlines()[0]}")
         return None
 
 
@@ -160,7 +177,8 @@ def main() -> None:
     print("downloading roads...")
     roads = []
     try:
-        graph = ox.project_graph(ox.graph_from_bbox(bbox, network_type="all", truncate_by_edge=True), to_crs=crs)
+        graph = with_retries(lambda: ox.graph_from_bbox(bbox, network_type="all", truncate_by_edge=True), "roads")
+        graph = ox.project_graph(graph, to_crs=crs)
         edges = ox.graph_to_gdfs(graph, nodes=False)
         for _, row in edges.iterrows():
             kind = row.get("highway")
@@ -169,7 +187,7 @@ def main() -> None:
     except Exception as error:
         print(f"  no roads: {error}")
 
-    # Albedo
+    # p1_003: albedo, drawn top-down with row 0 at the northern edge.
     res = args.albedo_resolution
     scale_x, scale_y = res / size_x, res / size_y
     image = Image.new("RGB", (res, res), COLORS["ground"])
@@ -192,7 +210,7 @@ def main() -> None:
     args.out.mkdir(parents=True, exist_ok=True)
     image.save(args.out / "albedo.png")
 
-    # Heightmap
+    # p1_003: heightmap from the DEM, resampled onto the bbox (row 0 = north).
     n = args.heightmap_resolution
     if args.dem:
         import rasterio
