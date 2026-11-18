@@ -1,9 +1,11 @@
 // p1_006, p1_007, p1_008: checks the map loader, the terrain mesh and the building mesh on the CPU,
-// without a window or GPU. Run: MapCheck [map directory]  (default: assets/maps/sample)
+// without a window or GPU. Run: MapCheck [map directory] [--obj out.obj]  (default: assets/maps/sample)
+// --obj also writes terrain and CPU-extruded buildings as an OBJ file for Blender or MeshLab.
 // Exit code 0 when all checks pass.
 
 #include "map/BuildingMesh.hpp"
 #include "map/MapData.hpp"
+#include "map/MapMesh.hpp"
 #include "map/TerrainMesh.hpp"
 
 #include <cmath>
@@ -165,6 +167,20 @@ namespace
 		std::printf("buildings: %zu of %zu drawn, %zu vertices, %zu walls\n", mesh.buildings.size(), map.buildings.size(), mesh.vertices.size(), walls);
 	}
 
+	// p1_008: CPU extrusion, every triangle faces along its normal (outwards / up).
+	void checkMapMesh(MapMesh const& mesh, char const* what)
+	{
+		bool facing = true;
+		for (size_t k = 0; k + 2 < mesh.indices.size(); k += 3)
+		{
+			MapMeshVertex const& a = mesh.vertices[mesh.indices[k]];
+			glm::vec3 const faceNormal = glm::cross(mesh.vertices[mesh.indices[k + 1]].position - a.position,
+			                                        mesh.vertices[mesh.indices[k + 2]].position - a.position);
+			facing = facing && glm::dot(faceNormal, a.normal) > 0.0f;
+		}
+		check(facing, std::string(what) + " triangles are counter-clockwise seen from their normal side");
+	}
+
 	// p1_001: readers reject other format versions.
 	void checkVersionRejected()
 	{
@@ -188,7 +204,20 @@ namespace
 
 int main(int argc, char** argv)
 {
-	std::filesystem::path const directory = argc > 1 ? std::filesystem::path(argv[1]) : std::filesystem::path(VR_ASSET_DIR) / "maps" / "sample";
+	std::filesystem::path directory = std::filesystem::path(VR_ASSET_DIR) / "maps" / "sample";
+	std::filesystem::path objPath;
+	for (int i = 1; i < argc; i++)
+	{
+		std::string const arg = argv[i];
+		if (arg == "--obj" && i + 1 < argc)
+		{
+			objPath = argv[++i];
+		}
+		else
+		{
+			directory = arg;
+		}
+	}
 
 	try
 	{
@@ -201,6 +230,18 @@ int main(int argc, char** argv)
 		checkTerrain(map);
 		checkBuildings(map);
 		checkVersionRejected();
+
+		MapMesh const terrain   = terrainToMapMesh(buildTerrainMesh(map));
+		MapMesh const buildings = extrudeBuildings(map, buildBuildingMesh(map));
+		checkMapMesh(terrain, "terrain");
+		checkMapMesh(buildings, "extruded building");
+		std::printf("extruded:  %zu building triangles\n", buildings.indices.size() / 3);
+
+		if (!objPath.empty())
+		{
+			writeMapObj(objPath, map, terrain, buildings);
+			std::printf("wrote %s\n", objPath.string().c_str());
+		}
 	}
 	catch (std::exception const& e)
 	{

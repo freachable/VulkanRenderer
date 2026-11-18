@@ -123,6 +123,7 @@ add_executable(${PROJECT_NAME}
   src/map/MapData.cpp
   src/map/TerrainMesh.cpp
   src/map/BuildingMesh.cpp
+  src/map/MapMesh.cpp
 )
 target_include_directories(${PROJECT_NAME} PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/src")
 
@@ -215,6 +216,7 @@ add_executable(MapCheck
   src/map/MapData.cpp
   src/map/TerrainMesh.cpp
   src/map/BuildingMesh.cpp
+  src/map/MapMesh.cpp
   src/assets/ImageLoader.cpp
 )
 target_include_directories(MapCheck PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/src" ${Stb_INCLUDE_DIR})
