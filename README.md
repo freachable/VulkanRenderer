@@ -29,7 +29,7 @@ assets/       runtime data: shaders/, textures/, meshes/, maps/<name>/
 src/          C++: platform/, scene/, assets/, graphics/{vulkan,gpu,renderer}/, map/
 tests/        CPU checks (MapCheck)
 tools/        offline Python scripts that produce map data
-docs/         map-data-format.md
+docs/         map-data-format.md, render-flow.md (frame flow proposal)
 ```
 
 ## World space
@@ -59,7 +59,12 @@ Overpass server is sometimes busy; the script retries.
 ```
 ctest --test-dir build/windows-debug
 build\windows-debug\bin\MapCheck.exe assets\maps\<name>
+build\windows-debug\bin\MapCheck.exe assets\maps\<name> --obj out\map.obj
 ```
+
+`--obj` also writes the terrain and the buildings (extruded on the CPU) as a Y-up OBJ with the
+albedo texture, to look at a map in Blender, MeshLab or https://3dviewer.net before the renderer
+draws it.
 
 ## P1: data pipeline and mesh engine
 
@@ -76,6 +81,6 @@ the GitHub issue, e.g. `p1_001 (GitHub #5)`.
 | p1_005 | #9 | Integrate with the framework | Waiting for geometry shader feature and multi-pipeline drawing |
 | p1_006 | #10 | Map loader | Done, checked by MapCheck |
 | p1_007 | #11 | Terrain mesh | Mesh and shader done, checked by MapCheck; not drawn yet (p1_005) |
-| p1_008 | #12 | Building extrusion (geometry shader) | Mesh and shader done, checked by MapCheck; not drawn yet (p1_005) |
+| p1_008 | #12 | Building extrusion (geometry shader) | Geometry shader path done; CPU extrusion (`src/map/MapMesh`) for drawing now and OBJ export |
 | p1_009 | #13 | Backface + frustum culling (CPU) | `src/map/Frustum.hpp` done; culling loop needs p1_005 |
 | p1_010 to p1_014 | #14 to #18 | GPU culling, shadows, Hi-Z, mesh shaders, terrain LOD | Not started |
