@@ -1,4 +1,6 @@
 #include "Application.hpp"
+//testing P2 stuff here:
+#include "splat/SplatTypes.h"
 
 #include <cstdlib>
 #include <exception>
