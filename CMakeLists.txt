@@ -179,6 +179,43 @@ function(add_slang_shader_target TARGET)
   add_custom_target(${TARGET} DEPENDS "${SHADER_OUTPUT}")
 endfunction()
 
+# P2 stuff:
+function(add_slang_compute_target TARGET)
+  cmake_parse_arguments(SHADER "" "OUTPUT;ENTRY" "SOURCE" ${ARGN})
+  if(NOT SHADER_ENTRY)
+    set(SHADER_ENTRY "computeMain")
+  endif()
+
+  get_filename_component(SHADER_OUTPUT_DIR "${SHADER_OUTPUT}" DIRECTORY)
+
+  add_custom_command(
+    OUTPUT "${SHADER_OUTPUT}"
+    COMMAND "${CMAKE_COMMAND}" -E make_directory "${SHADER_OUTPUT_DIR}"
+    COMMAND "${SLANGC_EXECUTABLE}"
+            ${SHADER_SOURCE}
+            -stage compute
+            -entry "${SHADER_ENTRY}"
+            -o "${SHADER_OUTPUT}"
+    DEPENDS ${SHADER_SOURCE}
+    WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
+    COMMENT "Compiling compute shader ${SHADER_SOURCE}"
+    VERBATIM
+  )
+
+  add_custom_target(${TARGET} DEPENDS "${SHADER_OUTPUT}")
+endfunction()
+
+add_slang_compute_target(SplatProjectShader 
+  SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/assets/shaders/splat/project.slang"
+  OUTPUT "${SHADER_DIR}/splat/project.spv" # update later
+)
+add_slang_compute_target(SplatRadixSortShader
+  SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/assets/shaders/splat/radix_sort.slang"
+  OUTPUT "${SHADER_DIR}/splat/radix_sort.spv" # update later
+)
+add_dependencies(${PROJECT_NAME} SplatProjectShader SplatRadixSortShader)
+# P2 stuff-end
+
 add_slang_shader_target(VulkanRendererShaders
   SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/assets/shaders/shader.slang"
   OUTPUT  "${SHADER_SPV}"
