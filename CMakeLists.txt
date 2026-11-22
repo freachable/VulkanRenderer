@@ -118,6 +118,9 @@ add_executable(${PROJECT_NAME}
 
   src/graphics/renderer/Renderer.cpp
   src/graphics/renderer/FrameResources.cpp
+
+  # P2 Gaussian Splatting Compute Core
+  src/splat/compute/SplatComputePipeline.cpp
 )
 target_include_directories(${PROJECT_NAME} PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/src")
 
