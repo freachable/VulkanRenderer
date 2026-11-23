@@ -29,7 +29,7 @@ assets/       runtime data: shaders/, textures/, meshes/, maps/<name>/
 src/          C++: platform/, scene/, assets/, graphics/{vulkan,gpu,renderer}/, map/
 tests/        CPU checks (MapCheck)
 tools/        offline Python scripts that produce map data
-docs/         map-data-format.md, render-flow.md (frame flow proposal)
+docs/         map-data-format.md, render-flow.md (frame flow), data-flow.md (data from sources to frame)
 ```
 
 ## World space
