@@ -77,7 +77,7 @@ Walls are generated for every triangle edge used by exactly one triangle (the ou
 ## foliage.json
 
 ```json
-{ "areas": [ { "type": "park", "polygon": [[x, z], ...] } ] }
+{ "areas": [ { "type": "park", "polygon": [[x, y], ...] } ] }
 ```
 
 `polygon` is a simple outline in world (x, y). `type` is informational (`park`, `forest`, `grass`, ...).
